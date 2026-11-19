@@ -40,3 +40,30 @@ import VitrinCore
     }
     #expect(PreviewGeometry.cocoaFrame(fromGlobalTopLeft: CGRect(x: 0, y: -500, width: 400, height: 300), primaryScreenHeight: 900) == CGRect(x: 0, y: 1100, width: 400, height: 300))
 }
+
+@Test func desktopStripFitsAndCentersTiles() {
+    typealias Strip = TaskViewLayout.DesktopStrip
+    #expect(Strip(count: 0, screenWidth: 1440).reservedHeight == 0)
+    #expect(Strip(count: 1, screenWidth: 1440).reservedHeight == 0)
+    let strip = Strip(count: 3, screenWidth: 1440)
+    #expect(strip.frame.midX == 720 && strip.frame.minY == 24)
+    #expect(strip.tileWidth == 160 && strip.frame.height == 96 + Strip.captionHeight)
+    #expect(strip.tileFrame(at: 2).maxX == strip.frame.width)
+
+    let crowded = Strip(count: 16, screenWidth: 900)
+    #expect(crowded.tileWidth < strip.tileWidth && crowded.frame.height < strip.frame.height)
+    #expect(crowded.frame.minX >= 23.99 && crowded.frame.maxX <= 876.01)
+    #expect(abs(crowded.tileFrame(at: 15).maxX - crowded.frame.width) < 0.01)
+}
+
+@Test func taskViewGridReservesVisibleStripHeight() {
+    let screen = CGSize(width: 1200, height: 600)
+    var cell = CellMetrics(thumbnailWidth: 280)
+    cell.minThumbnailWidth = 280
+    let strip = TaskViewLayout.DesktopStrip(count: 3, screenWidth: screen.width)
+    let plain = TaskViewLayout.compute(count: 5, screenSize: screen, cell: cell)
+    let reduced = TaskViewLayout.compute(count: 5, screenSize: screen, cell: cell, stripHeight: strip.reservedHeight)
+    #expect(reduced.panelSize == plain.panelSize)
+    #expect(reduced.scrollAreaHeight == plain.scrollAreaHeight - strip.reservedHeight)
+    #expect(!plain.scrolls && reduced.scrolls)
+}

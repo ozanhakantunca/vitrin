@@ -15,7 +15,12 @@ import VitrinSystem
 }
 @MainActor private final class FakeActor: WindowActing {
     var actions: [(WindowAction, WindowInfo)] = []
-    func perform(_ action: WindowAction, on window: WindowInfo) -> Bool { actions.append((action, window)); return true }
+    var onPerform: (() -> Void)?
+    func perform(_ action: WindowAction, on window: WindowInfo) -> Bool {
+        onPerform?()
+        actions.append((action, window))
+        return true
+    }
 }
 @MainActor private final class FakeHotkeys: HotkeyHandling {
     var profiles: [[ShortcutProfile]] = []
@@ -40,7 +45,36 @@ private final class FakeThumbnails: ThumbnailProviding {
     func invalidate(windowID: CGWindowID) {}
     func removeAll() {}
 }
-@MainActor private final class FakePanel: SwitcherPresentingF2 {
+@MainActor private final class FakeSpaceSwitcher: SpaceSwitching {
+    var desktops: [Desktop] = [
+        Desktop(id: 10, kind: .desktop(number: 1), displayIdentifier: "test", isCurrent: false, index: 0),
+        Desktop(id: 1, kind: .desktop(number: 2), displayIdentifier: "test", isCurrent: true, index: 1),
+        Desktop(id: 30, kind: .fullscreen, displayIdentifier: "test", isCurrent: false, index: 2),
+    ]
+    var displays: [CGDirectDisplayID] = []
+    var requests: [String] = []
+    var switches: [Desktop] = []
+    var onSwitch: (() -> Void)?
+    func spacesDisplayIdentifier(for displayID: CGDirectDisplayID) -> String? {
+        displays.append(displayID)
+        return "test"
+    }
+    func desktops(onDisplay identifier: String) -> [Desktop] {
+        requests.append(identifier)
+        return desktops
+    }
+    func switchTo(_ desktop: Desktop) -> Bool {
+        onSwitch?()
+        switches.append(desktop)
+        return true
+    }
+}
+@MainActor private final class FakePanel: SwitcherPresentingF2, SwitcherPresentingDesktops {
+    var desktops: [DesktopItem] = []
+    var desktopSelection: Int?
+    var onDesktopClick: ((Int) -> Void)?
+    func setDesktops(_ desktops: [DesktopItem]) { self.desktops = desktops }
+    func updateDesktopSelection(_ index: Int?) { desktopSelection = index }
     var isVisible = false
     let columns = 3
     let thumbnailPixelSize = CGSize.zero
@@ -54,11 +88,13 @@ private final class FakeThumbnails: ThumbnailProviding {
     func show(items: [SwitcherItem], selectedIndex: Int, profile: ShortcutProfile, on screen: NSScreen) { self.items = items; selection = selectedIndex; isVisible = true }
     func updateSelection(_ index: Int) { selection = index }
     func updateThumbnail(windowID: CGWindowID, image: CGImage) {}
-    func hide() { isVisible = false }
+    func hide() { isVisible = false; desktopSelection = nil; desktops = [] }
     func setSearchQuery(_ query: String) { self.query = query }
     func setBadges(_ badges: [CGWindowID: SwitcherBadges]) { self.badges = badges }
 }
-@MainActor private func fixture(_ count: Int) -> (SwitcherController, FakeTracker, FakeActor, FakeHotkeys, FakePanel) {
+@MainActor private func fixture(
+    _ count: Int, settings: AppSettings = .defaults, spaces: SpaceSwitching? = nil
+) -> (SwitcherController, FakeTracker, FakeActor, FakeHotkeys, FakePanel) {
     let tracker = FakeTracker(); let actor = FakeActor(); let hotkeys = FakeHotkeys(); let panel = FakePanel()
     tracker.windows = (0..<count).map { (index: Int) -> WindowInfo in
         let pid: pid_t = index < 2 ? 1 : 2
@@ -66,7 +102,9 @@ private final class FakeThumbnails: ThumbnailProviding {
         let frame = CGRect(x: 0, y: 0, width: 100, height: 100)
         return WindowInfo(id: CGWindowID(index + 1), pid: pid, appName: appName, title: "Window \(index)", frame: frame)
     }
-    return (SwitcherController(settings: .defaults, tracker: tracker, actor: actor, hotkeys: hotkeys, thumbnails: FakeThumbnails(), panel: panel), tracker, actor, hotkeys, panel)
+    let controller = SwitcherController(settings: settings, tracker: tracker, actor: actor, hotkeys: hotkeys,
+                                        thumbnails: FakeThumbnails(), panel: panel, spaces: spaces)
+    return (controller, tracker, actor, hotkeys, panel)
 }
 @MainActor @Test func controllerOpeningAndNavigation() {
     guard NSScreen.main != nil else { return }
@@ -147,4 +185,184 @@ private final class FakeThumbnails: ThumbnailProviding {
     #expect(c.isOpen && p.isVisible && actor.actions.isEmpty)
     c.handleGesture(.end)
     #expect(!c.isOpen && actor.actions.count == 1)
+}
+
+private func taskSettings() -> AppSettings {
+    var settings = AppSettings.defaults
+    settings.profiles[2].isEnabled = true
+    settings.appearance.showOnScreen = .main
+    return settings
+}
+
+@MainActor @Test func desktopStripUsesSessionDisplayAndTaskViewSetting() {
+    guard let screen = NSScreen.main else { return }
+    let spaces = FakeSpaceSwitcher()
+    let (c, _, _, _, p) = fixture(2, settings: taskSettings(), spaces: spaces)
+    c.open(profileID: "all-windows", reverse: false)
+    #expect(p.desktops.isEmpty && spaces.displays.isEmpty)
+    c.close()
+    c.open(profileID: "task-view", reverse: false)
+    #expect(spaces.displays.first == screen.displayID && spaces.requests == ["test"])
+    #expect(p.desktops.map(\.id) == [10, 1, 30])
+    c.close()
+
+    var settings = taskSettings()
+    settings.showDesktopsInTaskView = false
+    c.apply(settings: settings)
+    c.open(profileID: "task-view", reverse: false)
+    #expect(p.desktops.isEmpty && spaces.requests.count == 1)
+    c.close()
+    c.apply(settings: taskSettings())
+    spaces.desktops = [spaces.desktops[1]]
+    c.open(profileID: "task-view", reverse: false)
+    c.handle(.moveDown)
+    #expect(p.isVisible && p.desktops.isEmpty && p.desktopSelection == nil)
+}
+
+@MainActor @Test func desktopArrowsRestoreWindowFocusAndIgnoreActions() {
+    guard NSScreen.main != nil else { return }
+    let (c, _, actor, _, p) = fixture(5, settings: taskSettings(), spaces: FakeSpaceSwitcher())
+    c.open(profileID: "task-view", reverse: false)
+    c.handle(.moveDown)
+    #expect(p.selection == 4 && p.desktopSelection == nil)
+    c.handle(.moveDown)
+    #expect(p.desktopSelection == 1)
+    c.handle(.moveRight)
+    #expect(p.desktopSelection == 2)
+    c.handle(.moveLeft)
+    #expect(p.desktopSelection == 1)
+    for action: WindowAction in [.close, .minimize, .toggleFullscreen, .hideApp, .quitApp] {
+        c.handle(.action(action))
+    }
+    #expect(actor.actions.isEmpty && p.items.count == 5)
+    c.handle(.moveUp)
+    #expect(p.desktopSelection == nil && p.selection == 4)
+    c.handle(.moveDown)
+    c.handle(.next)
+    #expect(p.desktopSelection == nil && p.selection == 0)
+    c.handle(.previous)
+    c.handle(.moveDown)
+    c.handle(.previous)
+    #expect(p.desktopSelection == nil && p.selection == 3)
+    c.handle(.moveDown)
+    c.handle(.backspace)
+    #expect(p.desktopSelection == nil && p.selection == 3)
+    c.handle(.moveDown)
+    p.onHover?(3)
+    #expect(p.desktopSelection == nil && p.selection == 3)
+    c.handle(.moveDown)
+    c.handle(.text("no match"))
+    #expect(p.desktopSelection == nil && p.items.isEmpty && p.desktops.count == 3)
+    c.handle(.moveDown)
+    #expect(p.desktopSelection == 1)
+    c.handle(.backspace)
+    #expect(p.desktopSelection == nil && p.query == "no matc")
+    c.handle(.moveDown)
+    c.handle(.cancel)
+    #expect(!p.isVisible && actor.actions.isEmpty)
+}
+
+@MainActor @Test func desktopConfirmFocusesEligibleMRUOutsideGridFilter() {
+    guard NSScreen.main != nil else { return }
+    let spaces = FakeSpaceSwitcher()
+    var settings = taskSettings()
+    settings.profiles[2].filters.spaces = .current
+    let (c, tracker, actor, _, p) = fixture(0, settings: settings, spaces: spaces)
+    tracker.windows = [
+        WindowInfo(id: 1, pid: 1, spaceIDs: [1]),
+        WindowInfo(id: 2, pid: 2, spaceIDs: [10]),
+        WindowInfo(id: 3, pid: 3, spaceIDs: [10]),
+        WindowInfo(id: 4, pid: 4, isMinimized: true, spaceIDs: [10]),
+        WindowInfo(id: 5, pid: 5, isAppHidden: true, spaceIDs: [10]),
+        WindowInfo(id: 6, pid: 6, spaceIDs: [10, 1]),
+    ]
+    tracker.focusHistory = FocusHistory(mostRecentFirst: [6, 5, 4, 3, 2, 1])
+    actor.onPerform = { #expect(!p.isVisible) }
+    c.open(profileID: "task-view", reverse: false)
+    #expect(p.items.map(\.id) == [6, 1])
+    c.handle(.moveDown)
+    c.handle(.moveLeft)
+    c.handle(.confirm)
+    #expect(!p.isVisible && spaces.switches.isEmpty)
+    #expect(actor.actions.count == 1 && actor.actions.first?.0 == .focus && actor.actions.first?.1.id == 3)
+}
+
+@MainActor @Test func emptyAndCurrentDesktopsWorkWithoutWindowCells() {
+    guard NSScreen.main != nil else { return }
+    let spaces = FakeSpaceSwitcher()
+    let (c, _, actor, _, p) = fixture(0, settings: taskSettings(), spaces: spaces)
+    spaces.onSwitch = { #expect(!p.isVisible) }
+    c.open(profileID: "task-view", reverse: false)
+    #expect(p.isVisible && p.items.isEmpty)
+    c.handle(.moveDown)
+    c.handle(.confirm)
+    #expect(!p.isVisible && actor.actions.isEmpty && spaces.switches.isEmpty)
+    c.open(profileID: "task-view", reverse: false)
+    c.handle(.moveDown)
+    c.handle(.moveLeft)
+    c.handle(.confirm)
+    #expect(!p.isVisible && spaces.switches.map(\.id) == [10])
+    c.open(profileID: "task-view", reverse: false)
+    p.onDesktopClick?(2)
+    #expect(!p.isVisible && spaces.switches.map(\.id) == [10, 30] && actor.actions.isEmpty)
+}
+
+@MainActor @Test func desktopItemsUseFullscreenOwnerAndDistinctAppIconsInMRUOrder() {
+    let desktop = FakeSpaceSwitcher().desktops[2]
+    let pinned = WindowInfo(id: 1, pid: 1, bundleIdentifier: "one", appName: "Pinned", spaceIDs: [1, 30])
+    let owner = WindowInfo(id: 2, pid: 2, appName: "Player", isFullscreen: true, spaceIDs: [30])
+    let duplicate = WindowInfo(id: 3, pid: 3, bundleIdentifier: "one", spaceIDs: [30])
+    var windows = [pinned, owner, duplicate]
+    for id: UInt32 in 4...6 {
+        windows.append(WindowInfo(id: id, pid: pid_t(id), spaceIDs: [30]))
+    }
+    var requested: [pid_t] = []
+    let item = SwitcherController.desktopItem(for: desktop, windows: windows) { pid in
+        requested.append(pid)
+        return NSImage(size: NSSize(width: 32, height: 32))
+    }
+    #expect(item.title == "Player" && item.appIcons.count == 4)
+    #expect(requested == [1, 2, 4, 5])
+    let empty = SwitcherController.desktopItem(for: desktop, windows: []) { _ in nil }
+    #expect(empty.title == String(localized: "Full Screen") && empty.appIcons.isEmpty)
+}
+
+@MainActor @Test func desktopStripRefreshPreservesSelectionBySpaceID() {
+    guard NSScreen.main != nil else { return }
+    let spaces = FakeSpaceSwitcher()
+    let (c, tracker, _, _, p) = fixture(1, settings: taskSettings(), spaces: spaces)
+    c.open(profileID: "task-view", reverse: false)
+    c.handle(.moveDown)
+    c.handle(.moveRight)
+    tracker.windows.append(WindowInfo(id: 9, pid: 9, appName: "Video", isFullscreen: true, spaceIDs: [30]))
+    spaces.desktops.swapAt(0, 2)
+    tracker.onChange?()
+    #expect(p.desktops.first?.title == "Video" && p.desktopSelection == 0)
+    spaces.desktops.removeFirst(2)
+    tracker.onChange?()
+    #expect(p.desktops.isEmpty && p.desktopSelection == nil)
+}
+
+@MainActor @Test func desktopTileClickAndHitTesting() throws {
+    let desktops = FakeSpaceSwitcher().desktops
+    let host = NSView(frame: CGRect(x: 0, y: 0, width: 900, height: 500))
+    let strip = DesktopStripView()
+    host.addSubview(strip)
+    let layout = TaskViewLayout.DesktopStrip(count: desktops.count, screenWidth: host.bounds.width)
+    strip.setItems(desktops.map { DesktopItem(desktop: $0, title: "Tile", appIcons: []) })
+    strip.place(using: layout)
+    var clicked: Int?
+    strip.onClick = { clicked = $0 }
+
+    let frame = layout.tileFrame(at: 1).offsetBy(dx: layout.frame.minX, dy: layout.frame.minY)
+    let titlePoint = CGPoint(x: frame.midX, y: frame.minY + 8)
+    let tile = try #require(host.hitTest(titlePoint))
+    #expect(tile === host.hitTest(CGPoint(x: frame.midX, y: frame.midY)))
+    #expect(!tile.acceptsFirstResponder)
+    let event = try #require(NSEvent.mouseEvent(with: .leftMouseDown, location: titlePoint, modifierFlags: [],
+                                               timestamp: 0, windowNumber: 0, context: nil,
+                                               eventNumber: 1, clickCount: 1, pressure: 1))
+    tile.mouseDown(with: event)
+    #expect(clicked == 1)
+    #expect(host.hitTest(CGPoint(x: frame.maxX + 1, y: frame.midY)) === host)
 }

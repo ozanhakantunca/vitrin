@@ -11,6 +11,7 @@ public struct AppSettings: Sendable, Hashable, Codable {
     public var appearance: Appearance
     public var launchAtLogin: Bool
     public var showMenuBarIcon: Bool
+    public var showDesktopsInTaskView: Bool
     /// Three-finger horizontal swipe opens the switcher (uses the private MultitouchSupport framework).
     public var trackpadGesture: Bool
     /// Periodically check GitHub Releases for a newer Vitrin.
@@ -24,7 +25,8 @@ public struct AppSettings: Sendable, Hashable, Codable {
         launchAtLogin: Bool = false,
         showMenuBarIcon: Bool = true,
         trackpadGesture: Bool = false,
-        checkForUpdates: Bool = true
+        checkForUpdates: Bool = true,
+        showDesktopsInTaskView: Bool = true
     ) {
         self.schemaVersion = schemaVersion
         self.profiles = profiles
@@ -32,6 +34,7 @@ public struct AppSettings: Sendable, Hashable, Codable {
         self.appearance = appearance
         self.launchAtLogin = launchAtLogin
         self.showMenuBarIcon = showMenuBarIcon
+        self.showDesktopsInTaskView = showDesktopsInTaskView
         self.trackpadGesture = trackpadGesture
         self.checkForUpdates = checkForUpdates
     }
@@ -41,7 +44,7 @@ public struct AppSettings: Sendable, Hashable, Codable {
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion, profiles, appExceptions, appearance, launchAtLogin, showMenuBarIcon
-        case trackpadGesture, checkForUpdates
+        case trackpadGesture, checkForUpdates, showDesktopsInTaskView
     }
 
     public init(from decoder: Decoder) throws {
@@ -56,7 +59,8 @@ public struct AppSettings: Sendable, Hashable, Codable {
             launchAtLogin: c.decode(.launchAtLogin, or: d.launchAtLogin, decoder),
             showMenuBarIcon: c.decode(.showMenuBarIcon, or: d.showMenuBarIcon, decoder),
             trackpadGesture: c.decode(.trackpadGesture, or: d.trackpadGesture, decoder),
-            checkForUpdates: c.decode(.checkForUpdates, or: d.checkForUpdates, decoder)
+            checkForUpdates: c.decode(.checkForUpdates, or: d.checkForUpdates, decoder),
+            showDesktopsInTaskView: c.decode(.showDesktopsInTaskView, or: d.showDesktopsInTaskView, decoder)
         )
     }
 

@@ -2,10 +2,6 @@
 
 Ideas and known gaps. Contributions welcome — open an issue before starting on a larger item.
 
-## Planned
-- **Switch desktops (Spaces) from the switcher** — jump to another desktop from Alt+Tab or Task View,
-  not only to a window on it.
-
 ## Known gaps
 - If Vitrin is force-killed or crashes while it has taken over ⌘Tab, macOS's ⌘Tab stays off until
   Vitrin is launched again (a normal quit, SIGTERM or SIGINT restores it).
@@ -15,6 +11,9 @@ Ideas and known gaps. Contributions welcome — open an issue before starting on
   exceptions; a "restore default exceptions" button in Settings would cover it.
 - Task View: the small app icon sits at the thumbnail area's left edge when no thumbnail is available.
 - The trackpad gesture has not been tested on many devices yet.
+- Task View's desktop strip switches desktops with the system's Mission Control shortcuts (Desktop N, or
+  ⌃←/⌃→ steps). It only switches the display that has keyboard focus, and multi-display setups with
+  separate Spaces need more testing.
 - Never auto-save a config written by a newer Vitrin (`ConfigLoadResult.isFromNewerVersion`): it would
   strip fields that version added.
 

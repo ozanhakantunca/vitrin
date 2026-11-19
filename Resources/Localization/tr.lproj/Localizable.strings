@@ -118,6 +118,9 @@
 "Style" = "Stil";
 "System" = "Sistem";
 "Task view" = "Görev Görünümü";
+"Show desktops in Task View" = "Görev Görünümü’nde masaüstlerini göster";
+"Desktop %d" = "Masaüstü %d";
+"Full Screen" = "Tam Ekran";
 "The config contains multiple exceptions for %@. Remove the app and add it again to keep one entry." = "Yapılandırmada %@ için birden fazla istisna var. Tek kayıt bırakmak için uygulamayı kaldırıp yeniden ekleyin.";
 "The config file could not be opened. Choose an application for JSON files in Finder." = "Yapılandırma dosyası açılamadı. Finder'da JSON dosyaları için bir uygulama seçin.";
 "Theme" = "Tema";

@@ -92,6 +92,7 @@ import Testing
         settings.appearance = Appearance(theme: .dark, showOnScreen: .withMouse)
         settings.launchAtLogin = true
         settings.showMenuBarIcon = false
+        settings.showDesktopsInTaskView = false
 
         let data = try ConfigStore.encode(settings)
         let decoded = try JSONDecoder().decode(AppSettings.self, from: data)
@@ -126,6 +127,7 @@ import Testing
         let result = load(#"{ "launchAtLogin": true, "profiles": [ { "name": "Mine", "trigger": "control+tab" } ] }"#)
         #expect(result.warnings.isEmpty)
         #expect(result.settings.launchAtLogin)
+        #expect(result.settings.showDesktopsInTaskView)
         #expect(result.settings.showMenuBarIcon == AppSettings.defaults.showMenuBarIcon)
         #expect(result.settings.appearance == Appearance())
         let profile = result.settings.profiles[0]
@@ -147,6 +149,7 @@ import Testing
     @Test func invalidValuesFallBackPerFieldWithWarnings() {
         let result = load("""
         { "launchAtLogin": "yes",
+          "showDesktopsInTaskView": "yes",
           "appearance": { "theme": "sepia" },
           "profiles": [
             { "id": "a", "name": "A", "trigger": "hyper+tab", "style": "carousel", "filters": { "spaces": "current", "apps": 7 } },
@@ -158,6 +161,7 @@ import Testing
         #expect(result.origin == .file && result.error == nil)
         let s = result.settings
         #expect(s.launchAtLogin == false)
+        #expect(s.showDesktopsInTaskView)
         #expect(s.appearance.theme == .system)
         #expect(s.profiles.map(\.id) == ["a", "b"])           // the bad element (42) is skipped, not fatal
         #expect(s.profiles[0].trigger == nil)                  // unparseable shortcut → unassigned
@@ -167,7 +171,7 @@ import Testing
         #expect(s.appExceptions == [AppException(bundleIdentifier: "com.vmware.fusion", hide: .always)])
 
         let warnings = result.warnings.joined(separator: "\n")
-        for path in ["launchAtLogin", "appearance.theme", "profiles[0].trigger", "profiles[0].style",
+        for path in ["launchAtLogin", "showDesktopsInTaskView", "appearance.theme", "profiles[0].trigger", "profiles[0].style",
                      "profiles[0].filters.apps", "profiles[1]", "appExceptions[0]"] {
             #expect(warnings.contains(path), "missing warning for \(path)")
         }

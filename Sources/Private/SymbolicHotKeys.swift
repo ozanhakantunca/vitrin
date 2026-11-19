@@ -27,6 +27,13 @@ public struct SymbolicHotKey: RawRepresentable, Sendable, Hashable, CustomString
     /// ⌃↓ — Application windows.
     public static let applicationWindows = SymbolicHotKey(rawValue: 33)
 
+    /// ⌃← — Move left a space.
+    public static let moveLeftASpace = SymbolicHotKey(rawValue: 79)
+    /// ⌃→ — Move right a space.
+    public static let moveRightASpace = SymbolicHotKey(rawValue: 81)
+    /// Switch to Desktop 1 through 16, in order.
+    public static let switchToDesktop = (118...133).map(SymbolicHotKey.init(rawValue:))
+
     /// The hotkeys to disable for a profile that uses ⌘⇥.
     public static let nativeAppSwitcher: [SymbolicHotKey] = [.commandTab, .commandShiftTab]
 

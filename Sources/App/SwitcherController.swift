@@ -7,6 +7,7 @@ import VitrinSystem
 @MainActor
 final class SwitcherController {
     private let tracker: WindowTracking
+    private let spaces: SpaceSwitching?
     private let actor: WindowActing
     private var hotkeys: HotkeyHandling
     private let thumbnails: ThumbnailProviding
@@ -18,6 +19,10 @@ final class SwitcherController {
     var allItems: [SwitcherItem] = []
     private(set) var query = ""
     private var sessionScreen: NSScreen?
+    private var sessionSpacesDisplay: String?
+    private var desktops: [DesktopItem] = []
+    private var desktopIndex: Int?
+    private var desktopPanel: SwitcherPresentingDesktops? { panel as? SwitcherPresentingDesktops }
     var selectedIndex = 0
     var openProfile: ShortcutProfile?
     private var thumbnailTask: Task<Void, Never>?
@@ -47,10 +52,12 @@ final class SwitcherController {
         actor: WindowActing,
         hotkeys: HotkeyHandling,
         thumbnails: ThumbnailProviding,
-        panel: SwitcherPresentingF2
+        panel: SwitcherPresentingF2,
+        spaces: SpaceSwitching? = nil
     ) {
         self.settings = settings
         self.tracker = tracker
+        self.spaces = spaces
         self.actor = actor
         self.hotkeys = hotkeys
         self.thumbnails = thumbnails
@@ -98,14 +105,17 @@ final class SwitcherController {
 
     private func wireCallbacks() {
         hotkeys.onEvent = { [weak self] event in self?.handle(event) }
+        tracker.onChange = { [weak self] in self?.refreshDesktops() }
+        desktopPanel?.onDesktopClick = { [weak self] index in self?.pickDesktop(at: index) }
         panel.onHover = { [weak self] index in self?.select(index) }
         panel.onClick = { [weak self] index in
             self?.select(index)
             self?.commit()
         }
         panel.onAction = { [weak self] index, action in
-            self?.select(index)
-            self?.perform(action)
+            guard let self, self.desktopIndex == nil else { return }
+            self.select(index)
+            self.perform(action)
         }
     }
 
@@ -115,8 +125,8 @@ final class SwitcherController {
             if isOpen { move(by: reverse ? -1 : 1) } else { open(profileID: profileID, reverse: reverse) }
         case .next: move(by: 1)
         case .previous: move(by: -1)
-        case .moveLeft: move(by: -1)
-        case .moveRight: move(by: 1)
+        case .moveLeft: moveHorizontally(by: -1)
+        case .moveRight: moveHorizontally(by: 1)
         case .moveUp: moveVertically(by: -1)
         case .moveDown: moveVertically(by: 1)
         case .modifiersReleased:
@@ -130,10 +140,14 @@ final class SwitcherController {
             if text == " " && query.isEmpty { return commit() } // Space confirms unless searching
             query += text
             applySearch()
+            setDesktopFocus(nil)
         case .backspace:
-            guard isOpen, !query.isEmpty else { return }
-            query.removeLast()
-            applySearch()
+            guard isOpen else { return }
+            if !query.isEmpty {
+                query.removeLast()
+                applySearch()
+            }
+            setDesktopFocus(nil)
         }
     }
 
@@ -148,7 +162,10 @@ final class SwitcherController {
             exceptions: settings.appExceptions,
             context: context
         )
-        guard !windows.isEmpty else {
+        let desktopScreen = showsDesktops(for: profile) ? screen(for: context) : nil
+        let display = desktopScreen.flatMap(spacesDisplay(on:))
+        let desktopItems = desktopItems(on: display)
+        guard !windows.isEmpty || !desktopItems.isEmpty else {
             Log.app.info("Switcher: no windows for profile \(profileID, privacy: .public)")
             return
         }
@@ -157,13 +174,17 @@ final class SwitcherController {
         query = ""
         selectedIndex = Self.initialSelection(count: items.count, reverse: reverse)
         openProfile = profile
+        desktopIndex = nil
         hotkeys.openProfileID = profile.id
         // May synchronously deliver `.modifiersReleased` when the trigger was already released (a quick
         // tap): that commits and closes the session, so switch straight away without showing the panel.
         hotkeys.isSwitcherOpen = true
         guard isOpen else { return }
-        let screen = screen(for: context)
+        let screen = desktopScreen ?? screen(for: context)
         sessionScreen = screen
+        sessionSpacesDisplay = display
+        desktops = desktopItems
+        desktopPanel?.setDesktops(desktops)
         panel.setTheme(settings.appearance.theme)
         panel.setBadges(Self.badges(for: windows, context: context, screen: screen))
         panel.setSearchQuery("")
@@ -187,9 +208,13 @@ final class SwitcherController {
         allItems = []
         query = ""
         sessionScreen = nil
+        sessionSpacesDisplay = nil
+        desktops = []
+        desktopIndex = nil
     }
 
     private func commit() {
+        if let desktopIndex { return pickDesktop(at: desktopIndex) }
         guard isOpen, items.indices.contains(selectedIndex) else { return close() }
         let window = items[selectedIndex].window
         close()
@@ -197,7 +222,7 @@ final class SwitcherController {
     }
 
     private func perform(_ action: WindowAction) {
-        guard isOpen, items.indices.contains(selectedIndex) else { return }
+        guard isOpen, desktopIndex == nil, items.indices.contains(selectedIndex) else { return }
         if action == .focus { return commit() }
         let window = items[selectedIndex].window
         guard actor.perform(action, on: window) else { return }
@@ -211,10 +236,95 @@ final class SwitcherController {
         case .minimize, .toggleFullscreen, .hideApp, .focus:
             return // the window stays in the list; its badges refresh on next open
         }
-        guard !items.isEmpty, let profile = openProfile else { return close() }
-        selectedIndex = min(selectedIndex, items.count - 1)
+        guard !items.isEmpty || !desktops.isEmpty, let profile = openProfile else { return close() }
+        selectedIndex = max(0, min(selectedIndex, items.count - 1))
         panel.show(items: items, selectedIndex: selectedIndex, profile: profile, on: sessionScreen ?? screen(for: tracker.currentContext()))
         loadThumbnails()
+    }
+
+    // MARK: - Task View desktops
+
+    private var recentWindows: [WindowInfo] {
+        let history = tracker.focusHistory
+        return history.isEmpty ? WindowInfo.mruSorted(tracker.windows) : history.ordered(tracker.windows)
+    }
+
+    private func showsDesktops(for profile: ShortcutProfile) -> Bool {
+        profile.style == .taskView && settings.showDesktopsInTaskView && spaces != nil && desktopPanel != nil
+    }
+
+    private func spacesDisplay(on screen: NSScreen) -> String? {
+        guard let displayID = screen.displayID else { return nil }
+        return spaces?.spacesDisplayIdentifier(for: displayID)
+    }
+
+    private func desktopItems(on display: String?) -> [DesktopItem] {
+        guard let display, let spaces else { return [] }
+        let desktops = spaces.desktops(onDisplay: display)
+        guard desktops.count > 1 else { return [] }
+        let windows = recentWindows
+        return desktops.map { Self.desktopItem(for: $0, windows: windows, icon: Self.icon(for:)) }
+    }
+
+    /// The tracker inventory in MRU order, independent of the profile and its search query.
+    static func desktopItem(for desktop: Desktop, windows: [WindowInfo], icon: (pid_t) -> NSImage?) -> DesktopItem {
+        let members = windows.filter { $0.spaceIDs.contains(desktop.id) }
+        let title: String
+        switch desktop.kind {
+        case let .desktop(number):
+            title = String(format: String(localized: "Desktop %d"), number)
+        case .fullscreen:
+            let owner = members.first { $0.isFullscreen && !$0.appName.isEmpty }
+                ?? members.first { $0.spaceIDs == [desktop.id] && !$0.appName.isEmpty }
+            title = owner?.appName ?? String(localized: "Full Screen")
+        }
+        var apps = Set<String>()
+        var icons: [NSImage] = []
+        for window in members {
+            let app = window.bundleIdentifier ?? String(window.pid)
+            if apps.insert(app).inserted, let image = icon(window.pid) { icons.append(image) }
+            if icons.count == 4 { break }
+        }
+        return DesktopItem(desktop: desktop, title: title, appIcons: icons)
+    }
+
+    private func refreshDesktops() {
+        guard let display = sessionSpacesDisplay, let profile = openProfile,
+              let screen = sessionScreen, let desktopPanel else { return }
+        let updated = desktopItems(on: display)
+        guard updated != desktops else { return }
+        let selectedID = desktopIndex.map { desktops[$0].id }
+        let needsLayout = desktops.count != updated.count
+        desktops = updated
+        desktopIndex = selectedID.flatMap { id in updated.firstIndex { $0.id == id } }
+        desktopPanel.setDesktops(updated)
+        if needsLayout {
+            panel.show(items: items, selectedIndex: selectedIndex, profile: profile, on: screen)
+            loadThumbnails()
+        }
+        desktopPanel.updateDesktopSelection(desktopIndex)
+        if selectedID != nil && desktopIndex == nil { updatePreview() }
+    }
+
+    private func pickDesktop(at index: Int) {
+        guard isOpen, desktops.indices.contains(index) else { return }
+        let desktop = desktops[index].desktop
+        close()
+        guard !desktop.isCurrent else { return }
+        if let window = recentWindows.first(where: {
+            $0.spaceIDs == [desktop.id] && !$0.isMinimized && !$0.isAppHidden
+        }) {
+            actor.perform(.focus, on: window)
+        } else {
+            spaces?.switchTo(desktop)
+        }
+    }
+
+    private func setDesktopFocus(_ index: Int?) {
+        guard desktopIndex != index else { return }
+        desktopIndex = index
+        desktopPanel?.updateDesktopSelection(index)
+        updatePreview()
     }
 
     // MARK: - Search
@@ -251,7 +361,9 @@ final class SwitcherController {
     // MARK: - Selection
 
     private func select(_ index: Int) {
-        guard items.indices.contains(index), index != selectedIndex else { return }
+        guard items.indices.contains(index) else { return }
+        setDesktopFocus(nil)
+        guard index != selectedIndex else { return }
         selectedIndex = index
         panel.updateSelection(index)
         updatePreview()
@@ -262,7 +374,7 @@ final class SwitcherController {
     /// Full-size preview of the selection (opt-in: `appearance.showPreview`).
     private func updatePreview() {
         previewTask?.cancel()
-        guard settings.appearance.showPreview, isOpen, items.indices.contains(selectedIndex) else {
+        guard settings.appearance.showPreview, isOpen, desktopIndex == nil, items.indices.contains(selectedIndex) else {
             panel.showPreview(of: nil, image: nil)
             return
         }
@@ -285,14 +397,32 @@ final class SwitcherController {
     }
 
     private func move(by delta: Int) {
+        setDesktopFocus(nil)
         guard !items.isEmpty else { return }
         let count = items.count
         select(((selectedIndex + delta) % count + count) % count)
     }
 
+    private func moveHorizontally(by delta: Int) {
+        guard let desktopIndex else { return move(by: delta) }
+        setDesktopFocus(min(max(0, desktopIndex + delta), desktops.count - 1))
+    }
+
     private func moveVertically(by rows: Int) {
-        guard !items.isEmpty else { return }
-        let target = selectedIndex + rows * max(panel.columns, 1)
+        if desktopIndex != nil {
+            if rows < 0 { setDesktopFocus(nil) }
+            return
+        }
+        let columns = max(panel.columns, 1)
+        if rows > 0, !desktops.isEmpty {
+            if items.isEmpty || selectedIndex / columns == (items.count - 1) / columns {
+                setDesktopFocus(desktops.firstIndex { $0.desktop.isCurrent } ?? 0)
+            } else {
+                select(min(selectedIndex + columns, items.count - 1))
+            }
+            return
+        }
+        let target = selectedIndex + rows * columns
         if items.indices.contains(target) { select(target) }
     }
 
@@ -368,9 +498,14 @@ extension SwitcherController {
         items = allItems
         selectedIndex = Self.initialSelection(count: items.count, reverse: false)
         openProfile = profile
+        let screen = NSScreen.main ?? NSScreen.screens[0]
+        sessionScreen = screen
+        sessionSpacesDisplay = showsDesktops(for: profile) ? spacesDisplay(on: screen) : nil
+        desktops = desktopItems(on: sessionSpacesDisplay)
+        desktopPanel?.setDesktops(desktops)
         panel.setTheme(settings.appearance.theme)
         panel.setSearchQuery("")
-        panel.show(items: items, selectedIndex: selectedIndex, profile: profile, on: NSScreen.main ?? NSScreen.screens[0])
+        panel.show(items: items, selectedIndex: selectedIndex, profile: profile, on: screen)
         loadThumbnails()
     }
 

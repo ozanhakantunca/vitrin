@@ -171,6 +171,9 @@ private struct ShortcutProfileEditor: View {
                         Label(style.settingsLabel, systemImage: style.settingsSymbol).tag(style)
                     }
                 }
+                if profile?.style == .taskView {
+                    Toggle(String(localized: "Show desktops in Task View"), isOn: $store.settings.showDesktopsInTaskView)
+                }
                 SettingsPicker(title: String(localized: "Size"), selection: binding(\.size, fallback: .auto))
                 SettingsPicker(title: String(localized: "On modifier release"), selection: binding(\.releaseBehavior, fallback: .focusSelection))
             }

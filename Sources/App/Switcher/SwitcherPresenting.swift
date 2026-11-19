@@ -59,5 +59,28 @@ extension SwitcherPresentingF2 {
     func setTheme(_ theme: Appearance.Theme) {}
 }
 
+// MARK: - Desktops (Task View only)
+
+/// One tile of Task View's desktop strip.
+struct DesktopItem: Identifiable, Hashable {
+    let desktop: Desktop
+    /// "Desktop 2" / "Masaüstü 2", or the full-screen app's name.
+    let title: String
+    /// Icons of the apps with windows on this desktop, most recent first (a handful at most).
+    let appIcons: [NSImage]
+    var id: SpaceID { desktop.id }
+}
+
+@MainActor
+protocol SwitcherPresentingDesktops: AnyObject {
+    /// Desktops for the strip at the bottom of Task View. An empty array (or a single desktop) hides
+    /// the strip. Applied on the next `show`; ignored by the non-Task-View styles.
+    func setDesktops(_ desktops: [DesktopItem])
+    /// Keyboard focus inside the strip: the highlighted tile, or nil when the window grid has focus.
+    func updateDesktopSelection(_ index: Int?)
+    /// A desktop tile was clicked.
+    var onDesktopClick: ((Int) -> Void)? { get set }
+}
+
 /// Remove once `SwitcherPanel` implements the F2 methods itself (kept here so the build stays green).
 extension SwitcherPanel: SwitcherPresentingF2 {}

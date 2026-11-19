@@ -85,6 +85,22 @@ public protocol HotkeyHandling: AnyObject {
     var onEvent: ((HotkeyEvent) -> Void)? { get set }
 }
 
+// MARK: - Spaces (desktops)
+
+/// Lists Mission Control Spaces and switches between them.
+@MainActor
+public protocol SpaceSwitching: AnyObject {
+    /// Spaces of the display with SkyLight identifier `displayIdentifier`, in Mission Control order.
+    /// Empty when unavailable.
+    func desktops(onDisplay displayIdentifier: String) -> [Desktop]
+    /// SkyLight identifier of `displayID`'s Spaces (handles "Displays have separate Spaces" being off).
+    func spacesDisplayIdentifier(for displayID: CGDirectDisplayID) -> String?
+    /// Makes `desktop` the visible Space on its display, without focusing a window. Returns false if
+    /// it could not be done.
+    @discardableResult
+    func switchTo(_ desktop: Desktop) -> Bool
+}
+
 // MARK: - Thumbnails
 
 /// Window thumbnails via ScreenCaptureKit. Thread-safe; results cached per window.

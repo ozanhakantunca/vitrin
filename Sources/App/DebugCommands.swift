@@ -12,6 +12,8 @@ import VitrinSystem
 ///     swift scripts/vitrin-debug.swift open all-windows   # also: next, previous, confirm, cancel, settings, type <text>
 ///     swift scripts/vitrin-debug.swift demo [N] [profile] # panel with N WindowServer windows (no AX needed)
 ///     swift scripts/vitrin-debug.swift dump               # writes $(getconf DARWIN_USER_TEMP_DIR)vitrin-dump.txt
+///     swift scripts/vitrin-debug.swift desktops          # writes $(getconf DARWIN_USER_TEMP_DIR)vitrin-desktops.txt
+///     swift scripts/vitrin-debug.swift desktop <index>   # index from the desktops dump (0-based)
 @MainActor
 final class DebugCommands {
     static let notificationName = Notification.Name("io.github.ozanhakantunca.vitrin.debug")
@@ -19,6 +21,7 @@ final class DebugCommands {
 
     private weak var controller: SwitcherController?
     private let windowsDump: () -> String
+    private let spaceSwitcher = SpaceSwitcher()
     private var observer: NSObjectProtocol?
 
     init(controller: SwitcherController, windowsDump: @escaping () -> String) {
@@ -63,6 +66,10 @@ final class DebugCommands {
         case "next": controller.handle(.next)
         case "previous": controller.handle(.previous)
         case "confirm": controller.handle(.confirm)
+        case "up": controller.handle(.moveUp)
+        case "down": controller.handle(.moveDown)
+        case "left": controller.handle(.moveLeft)
+        case "right": controller.handle(.moveRight)
         case "cancel": controller.handle(.cancel)
         case "settings": (NSApp.delegate as? AppDelegate)?.showSettings()
         case "type": for character in parts.dropFirst().joined(separator: " ") { controller.handle(.text(String(character))) }
@@ -74,6 +81,30 @@ final class DebugCommands {
             let path = FileManager.default.temporaryDirectory.appendingPathComponent("vitrin-dump.txt")
             let text = "AXIsProcessTrusted=\(AXIsProcessTrusted())\n\(controller.debugDescription)\n\n\(windowsDump())"
             try? text.write(to: path, atomically: true, encoding: .utf8)
+        case "desktops":
+            let display = spaceSwitcher.activeSpacesDisplayIdentifier
+            let desktops = display.map { spaceSwitcher.desktops(onDisplay: $0) } ?? []
+            let rows = desktops.map { desktop in
+                let kind: String
+                switch desktop.kind {
+                case .desktop(let number): kind = "desktop number=\(number)"
+                case .fullscreen: kind = "fullscreen"
+                }
+                return "\(desktop.index) id=\(desktop.id) kind=\(kind) current=\(desktop.isCurrent)"
+            }
+            let text = (["display=\(display ?? "unavailable")"] + rows).joined(separator: "\n") + "\n"
+            let path = FileManager.default.temporaryDirectory.appendingPathComponent("vitrin-desktops.txt")
+            try? text.write(to: path, atomically: true, encoding: .utf8)
+        case "desktop":
+            guard parts.count == 2, let index = Int(parts[1]),
+                  let display = spaceSwitcher.activeSpacesDisplayIdentifier,
+                  let desktop = spaceSwitcher.desktops(onDisplay: display).first(where: { $0.index == index })
+            else {
+                Log.app.error("Desktop index unavailable on the active display")
+                return
+            }
+            let posted = spaceSwitcher.switchTo(desktop)
+            Log.app.notice("Desktop \(index) switch posted=\(posted)")
         default: Log.app.error("Unknown debug command")
         }
     }

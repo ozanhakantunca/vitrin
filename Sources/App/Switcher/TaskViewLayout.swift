@@ -12,15 +12,45 @@ enum TaskViewLayout {
     /// Chrome above the grid; the grid is centered in what is left.
     static var reservedHeight: CGFloat { searchTopMargin + searchHeight + searchGap }
 
+    /// Centered desktop tiles in panel coordinates (origin at bottom-left).
+    struct DesktopStrip {
+        static let captionHeight: CGFloat = 24
+        let frame: CGRect
+        let tileWidth: CGFloat
+        let spacing: CGFloat
+
+        init(count: Int, screenWidth: CGFloat) {
+            guard count > 1 else {
+                frame = .zero
+                tileWidth = 0
+                spacing = 0
+                return
+            }
+            let naturalWidth = CGFloat(count) * 160 + CGFloat(count - 1) * 12
+            let scale = min(1, max(0, screenWidth - 48) / naturalWidth)
+            tileWidth = 160 * scale
+            spacing = 12 * scale
+            let width = naturalWidth * scale
+            frame = CGRect(x: (screenWidth - width) / 2, y: 24,
+                           width: width, height: 96 * scale + Self.captionHeight)
+        }
+
+        var reservedHeight: CGFloat { frame.maxY }
+
+        func tileFrame(at index: Int) -> CGRect {
+            CGRect(x: CGFloat(index) * (tileWidth + spacing), y: 0, width: tileWidth, height: frame.height)
+        }
+    }
+
     /// Lays `count` cells out in a full-screen panel: balanced rows, centered horizontally and (when it
     /// fits) vertically. Shrinks the thumbnail in `GridLayout.shrinkStep` steps down to
     /// `cell.minThumbnailWidth`, then scrolls vertically. Reuses `GridLayout` as the result type
     /// (`panelSize` == `screenSize`, `contentSize` fills the scroll area, `verticalOffset` centers a short grid).
-    static func compute(count: Int, screenSize: CGSize, cell: CellMetrics) -> GridLayout {
+    static func compute(count: Int, screenSize: CGSize, cell: CellMetrics, stripHeight: CGFloat = 0) -> GridLayout {
         let n = max(count, 0)
         let pad = cell.panelPadding
         let spacing = cell.spacing
-        let reserved = reservedHeight
+        let reserved = reservedHeight + stripHeight
         let availableWidth = screenSize.width - 2 * pad
         let availableHeight = screenSize.height - reserved - 2 * pad
         let minWidth = min(cell.minThumbnailWidth, cell.thumbnailWidth)

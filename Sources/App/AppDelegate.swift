@@ -72,7 +72,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             actor: actor,
             hotkeys: HotkeyManager(),
             thumbnails: ThumbnailProvider(),
-            panel: panel
+            panel: panel,
+            spaces: SpaceSwitcher()
         )
         // Task view: clicking the dimmed background cancels.
         panel.onBackgroundClick = { [weak controller] in controller?.close() }

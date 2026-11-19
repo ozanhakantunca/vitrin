@@ -22,7 +22,8 @@ sürümü yoktur.
 - **Tüm pencereler** — diğer masaüstlerindeki (Space) pencereler, küçültülmüş pencereler ve gizli
   uygulamalar dahil.
 - **Canlı küçük resimler** ya da sade uygulama simgesi veya başlık listesi görünümü.
-- **Görev Görünümü** — Windows'taki Win+Tab gibi tüm pencerelerin tam ekran görünümü.
+- **Görev Görünümü** — Windows'taki Win+Tab gibi tüm pencerelerin tam ekran görünümü; alttaki
+  masaüstü şeridiyle masaüstleri (Space) arasında geçiş.
 - **Yazarak arama** — uygulama adlarında ve pencere başlıklarında bulanık eşleşme, Türkçe karakter
   desteğiyle.
 - **Pencereleri switcher'dan yönetme**: kapatma, küçültme, tam ekran, gizleme, uygulamadan çıkma.
@@ -87,14 +88,16 @@ Vitrin ilk açılışta şu izinleri ister:
 ⌥Tab'a hızlıca basıp bırakırsanız panel hiç açılmadan bir önceki pencereye geçilir.
 
 **Görev Görünümü** varsayılan olarak kapalıdır. **Ayarlar → Kısayollar** bölümünden açabilirsiniz:
-⌘Tab ile açılır ve bir pencere seçene kadar açık kalır.
+⌘Tab ile açılır ve bir pencere seçene kadar açık kalır. Alttaki şerit masaüstlerinizi gösterir: son
+satırdan ↓ ile (ya da tıklayarak) şeride inin, ←/→ ile seçin ve Return ile geçin. Geçince o masaüstünde
+en son kullanılan pencere öne gelir; boş bir masaüstüne doğrudan geçilir.
 
 ### Windows'tan gelenler için
 
 macOS modundaki bir Windows klavyesinde **Alt, ⌥** ve **Windows tuşu, ⌘** olarak çalışır. Yani:
 
 - **Alt+Tab** alıştığınız gibi çalışır; Alt basılıyken **Ctrl+W** seçili pencereyi kapatır.
-- Görev Görünümü açıldıktan sonra **Win+Tab** onu açar.
+- Görev Görünümü açıldıktan sonra **Win+Tab** onu açar; masaüstü şeridiyle masaüstü değiştirebilirsiniz.
 
 Karabiner-Elements gibi bir tuş eşleme aracında Win+Tab (⌘Tab) için ayrı bir kural varsa kaldırın;
 o kural tuşu Vitrin'den önce yakalar.

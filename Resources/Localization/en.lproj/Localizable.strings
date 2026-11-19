@@ -118,6 +118,9 @@
 "Style" = "Style";
 "System" = "System";
 "Task view" = "Task view";
+"Show desktops in Task View" = "Show desktops in Task View";
+"Desktop %d" = "Desktop %d";
+"Full Screen" = "Full Screen";
 "The config contains multiple exceptions for %@. Remove the app and add it again to keep one entry." = "The config contains multiple exceptions for %@. Remove the app and add it again to keep one entry.";
 "The config file could not be opened. Choose an application for JSON files in Finder." = "The config file could not be opened. Choose an application for JSON files in Finder.";
 "Theme" = "Theme";

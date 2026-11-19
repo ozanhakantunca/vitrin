@@ -32,12 +32,16 @@ private final class SwitcherWindow: NSPanel {
 
 /// The Alt-Tab style switcher window. Reflects state pushed by `SwitcherController`; owns no policy.
 @MainActor
-final class SwitcherPanel: SwitcherPresenting {
+final class SwitcherPanel: SwitcherPresenting, SwitcherPresentingDesktops {
     // MARK: SwitcherPresenting
 
     var onHover: ((Int) -> Void)?
     var onClick: ((Int) -> Void)?
     var onAction: ((Int, WindowAction) -> Void)?
+    var onDesktopClick: ((Int) -> Void)? {
+        get { desktopStrip.onClick }
+        set { desktopStrip.onClick = newValue }
+    }
     /// Task view only: a click on the empty dim background (not on a cell, button or the search bar).
     /// AppDelegate wires it to `controller.close()` (cancel). Not part of `SwitcherPresenting`.
     var onBackgroundClick: (() -> Void)?
@@ -99,10 +103,32 @@ final class SwitcherPanel: SwitcherPresenting {
     /// Thumbnail pixel size a `show` with these arguments would produce — lets the controller start
     /// captures before the panel is on screen.
     func thumbnailPixelSize(forItemCount count: Int, profile: ShortcutProfile, on screen: NSScreen) -> CGSize {
-        let (layout, _, renderer) = Self.computeLayout(count: count, profile: profile, screen: screen)
+        let strip = stripLayout(for: profile, on: screen)
+        let (layout, _, renderer) = Self.computeLayout(count: count, profile: profile, screen: screen, stripHeight: strip.reservedHeight)
         guard renderer.usesThumbnails else { return Self.tokenThumbnailPixelSize }
         let scale = screen.backingScaleFactor
         return CGSize(width: layout.thumbnailSize.width * scale, height: layout.thumbnailSize.height * scale)
+    }
+
+    func setDesktops(_ desktops: [DesktopItem]) {
+        desktopStrip.setItems(desktops)
+        if isTaskViewMode, let layout {
+            desktopStrip.place(using: .init(count: desktops.count, screenWidth: layout.panelSize.width))
+        }
+    }
+
+    func updateDesktopSelection(_ index: Int?) {
+        desktopStrip.select(index)
+        if cells.indices.contains(selectedIndex) { cells[selectedIndex].setSelected(index == nil) }
+        if index != nil, let hoveredIndex {
+            cells[hoveredIndex].setHovered(false)
+            self.hoveredIndex = nil
+        }
+    }
+
+    private func stripLayout(for profile: ShortcutProfile, on screen: NSScreen) -> TaskViewLayout.DesktopStrip {
+        TaskViewLayout.DesktopStrip(count: profile.style == .taskView ? desktopStrip.count : 0,
+                                   screenWidth: screen.visibleFrame.width)
     }
 
     // MARK: State
@@ -123,6 +149,7 @@ final class SwitcherPanel: SwitcherPresenting {
     private let window = SwitcherWindow()
     private let effectView = SwitcherBackdropView()
     private let tintView = PanelTintView(cornerRadius: SwitcherPanel.cornerRadius)
+    private let desktopStrip = DesktopStripView()
     private let dimView = TaskViewDimView()
     /// `.taskView` profiles switch the panel into a full-screen mode (see `setMode`).
     private var isTaskViewMode = false
@@ -190,6 +217,7 @@ final class SwitcherPanel: SwitcherPresenting {
         effectView.addSubview(emptyLabel)
         effectView.addSubview(selectedTitleLabel)
         effectView.addSubview(searchBar)
+        effectView.addSubview(desktopStrip)
         searchBar.setQuery(searchQuery)
         applyTheme()
     }
@@ -197,7 +225,8 @@ final class SwitcherPanel: SwitcherPresenting {
     // MARK: show / hide
 
     func show(items: [SwitcherItem], selectedIndex: Int, profile: ShortcutProfile, on screen: NSScreen) {
-        let (layout, metrics, renderer) = Self.computeLayout(count: items.count, profile: profile, screen: screen)
+        let strip = stripLayout(for: profile, on: screen)
+        let (layout, metrics, renderer) = Self.computeLayout(count: items.count, profile: profile, screen: screen, stripHeight: strip.reservedHeight)
         let isTaskView = profile.style == .taskView
         setMode(taskView: isTaskView)
         self.renderer = renderer
@@ -226,6 +255,7 @@ final class SwitcherPanel: SwitcherPresenting {
         dimView.frame = effectView.bounds
 
         // Chrome (Cocoa coordinates, origin bottom-left): search bar on top, optional footer at the bottom.
+        desktopStrip.place(using: strip)
         let footer = renderer.footerHeight
         if isTaskView {
             let width = min(TaskViewLayout.searchWidth, max(0, panelSize.width - 2 * Self.searchSideMargin))
@@ -244,7 +274,7 @@ final class SwitcherPanel: SwitcherPresenting {
             )
         }
         // scrollAreaHeight = panel height - search chrome - footer.
-        scrollView.frame = CGRect(x: 0, y: footer, width: panelSize.width, height: layout.scrollAreaHeight)
+        scrollView.frame = CGRect(x: 0, y: footer + strip.reservedHeight, width: panelSize.width, height: layout.scrollAreaHeight)
         selectedTitleLabel.isHidden = footer == 0
         selectedTitleLabel.frame = CGRect(x: 20, y: 10, width: max(0, panelSize.width - 40), height: 18)
         emptyLabel.isHidden = !items.isEmpty
@@ -279,6 +309,7 @@ final class SwitcherPanel: SwitcherPresenting {
 
     func hide() {
         window.orderOut(nil)
+        setDesktops([])
         previewWindow.dismiss()
         searchQuery = ""
         searchBar.setQuery("")
@@ -444,19 +475,19 @@ final class SwitcherPanel: SwitcherPresenting {
     }
 
     private static func computeLayout(
-        count: Int, profile: ShortcutProfile, screen: NSScreen
+        count: Int, profile: ShortcutProfile, screen: NSScreen, stripHeight: CGFloat
     ) -> (layout: GridLayout, metrics: CellMetrics, renderer: SwitcherCellRenderer) {
         let visibleSize = screen.visibleFrame.size
         let renderer = SwitcherCellRenderers.renderer(for: profile.style)
         let isTaskView = profile.style == .taskView
-        let chrome = isTaskView ? TaskViewLayout.reservedHeight : searchChromeHeight
+        let chrome = isTaskView ? TaskViewLayout.reservedHeight + stripHeight : searchChromeHeight
         // Fixed sizes map through `SwitcherSizing`; `.auto` (and task view) fit the item count to the screen.
         let metrics = renderer.metrics(
             for: profile.size, itemCount: count, screenSize: visibleSize,
             reservedHeight: chrome + renderer.footerHeight
         )
         let layout = isTaskView
-            ? TaskViewLayout.compute(count: count, screenSize: visibleSize, cell: metrics)
+            ? TaskViewLayout.compute(count: count, screenSize: visibleSize, cell: metrics, stripHeight: stripHeight)
             : GridLayout.compute(
                 count: count, screenSize: visibleSize, cell: metrics,
                 reservedHeight: chrome + renderer.footerHeight,

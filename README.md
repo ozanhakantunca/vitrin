@@ -20,7 +20,8 @@ desktop, with a live preview of each one. Everything is free; there is no paid t
 
 - **Every window** — windows on other desktops (Spaces), minimized windows and hidden apps.
 - **Live thumbnails**, or a compact app-icon or title-list style.
-- **Task View** — a full-screen overview of all windows, like Windows' Win+Tab.
+- **Task View** — a full-screen overview of all windows, like Windows' Win+Tab, with a desktop strip
+  to switch desktops (Spaces).
 - **Type to search** — fuzzy matching on app names and window titles, Turkish characters included.
 - **Act on windows** without leaving the switcher: close, minimize, fullscreen, hide, quit.
 - **Unlimited shortcuts**, each with its own filter (all windows, current app, current desktop…)
@@ -81,14 +82,16 @@ On first launch Vitrin asks for:
 A quick ⌥Tab tap jumps straight back to the previous window without showing the panel.
 
 **Task View** is off by default. Turn it on in **Settings → Shortcuts**: it opens with ⌘Tab and stays
-open until you pick a window.
+open until you pick a window. The strip at the bottom shows your desktops: press ↓ from the last row
+(or click) to reach it, ←/→ to choose and Return to switch. Switching focuses the desktop's most recent
+window; an empty desktop is switched to directly.
 
 ### Coming from Windows
 
 A Windows keyboard in macOS mode sends **Alt as ⌥** and the **Windows key as ⌘**, so:
 
 - **Alt+Tab** works as you expect, and **Ctrl+W** closes the selected window while Alt is still held.
-- **Win+Tab** opens Task View once it is enabled.
+- **Win+Tab** opens Task View once it is enabled, and its desktop strip switches desktops.
 
 If a key remapper such as Karabiner-Elements has its own rule for Win+Tab (⌘Tab), remove that rule —
 it catches the key before Vitrin does.
