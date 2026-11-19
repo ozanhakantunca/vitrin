@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.2.0] - 2026-11-19
 
 ### Added
 - Task View desktop strip: see every desktop (Space) of the screen with its apps and switch to one with
