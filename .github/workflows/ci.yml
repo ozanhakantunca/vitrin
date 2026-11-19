@@ -1,0 +1,24 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift --version
+      - run: swift build
+      - run: swift test
+      - run: scripts/build-app.sh --arch universal
+      - run: ditto -c -k --keepParent dist/Vitrin.app dist/Vitrin.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Vitrin
+          path: dist/Vitrin.zip

@@ -1,0 +1,60 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify version
+        shell: bash
+        run: |
+          VERSION=$(cat VERSION)
+          test "${GITHUB_REF_NAME#v}" = "$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+      - name: Configure signing
+        shell: bash
+        env:
+          VITRIN_CERT_P12_BASE64: ${{ secrets.VITRIN_CERT_P12_BASE64 }}
+          VITRIN_CERT_P12_PASSWORD: ${{ secrets.VITRIN_CERT_P12_PASSWORD }}
+        run: |
+          if [[ -n "$VITRIN_CERT_P12_BASE64" ]]; then
+            p12="$RUNNER_TEMP/vitrin-cert.p12"
+            kc="$RUNNER_TEMP/vitrin-signing.keychain-db"
+            pw=$(openssl rand -hex 32)
+            echo "$VITRIN_CERT_P12_BASE64" | base64 --decode > "$p12"
+            security create-keychain -p "$pw" "$kc"
+            security unlock-keychain -p "$pw" "$kc"
+            security set-keychain-settings "$kc"
+            security import "$p12" -k "$kc" -P "$VITRIN_CERT_P12_PASSWORD" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple: -s -k "$pw" "$kc"
+            existing=()
+            while IFS= read -r line; do
+              line="${line#\"}"
+              line="${line%\"}"
+              existing+=("$line")
+            done < <(security list-keychains -d user | sed 's/^[[:space:]]*//')
+            security list-keychains -d user -s "$kc" "${existing[@]}"
+            echo 'VITRIN_SIGN_IDENTITY=Vitrin Self-Signed' >> "$GITHUB_ENV"
+            rm -f "$p12"
+          else
+            echo 'No certificate supplied; using ad-hoc signing.'
+          fi
+      - run: scripts/build-app.sh --arch universal
+      - run: scripts/make-dmg.sh
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          # Notes: this version's CHANGELOG section. Not a prerelease, so releases/latest (README link,
+          # in-app update check) resolves to it.
+          awk -v v="$VERSION" '/^## \[/{p = index($0, "[" v "]") > 0; next} p' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          test -s "$RUNNER_TEMP/notes.md"
+          gh release create "$GITHUB_REF_NAME" dist/Vitrin-*.dmg dist/Vitrin-*.dmg.sha256 --title "Vitrin $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+      - name: Delete temporary keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/vitrin-signing.keychain-db" || true

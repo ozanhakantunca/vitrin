@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleExecutable</key>
+    <string>Vitrin</string>
+    <key>CFBundleIdentifier</key>
+    <string>io.github.ozanhakantunca.vitrin</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>Vitrin</string>
+    <key>CFBundleDisplayName</key>
+    <string>Vitrin</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>@VERSION@</string>
+    <key>CFBundleVersion</key>
+    <string>@BUILD_NUMBER@</string>
+    <key>CFBundleLocalizations</key>
+    <array><string>en</string><string>tr</string></array>
+    <key>LSUIElement</key>
+    <true/>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © Vitrin contributors. Free software licensed under GPL-3.0-only.</string>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Vitrin uses Screen Recording access to show live previews of your open windows.</string>
+    <key>NSAccessibilityUsageDescription</key>
+    <string>Vitrin uses Accessibility access to list, focus, and switch your windows.</string>
+</dict>
+</plist>

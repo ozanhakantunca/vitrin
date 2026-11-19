@@ -1,0 +1,10 @@
+.DS_Store
+/.build/
+/.build-*/
+/.swiftpm/
+/dist/
+*.xcodeproj/
+xcuserdata/
+DerivedData/
+*.p12
+*.cer
