@@ -36,10 +36,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             actions: .init(
                 showPermissions: { [weak self] in self?.showOnboarding() },
                 showSettings: { [weak self] in self?.showSettings() },
-                showAbout: { [weak self] in self?.showAbout() }
+                showAbout: { [weak self] in self?.showAbout() },
+                loginItemChanged: { [weak self] in self?.syncLaunchAtLoginSetting() }
             )
         )
 
+        LoginItem.applyDefaultOnce()
+        syncLaunchAtLoginSetting()
         startSwitcher()
 
         permissions.refresh()
@@ -86,6 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             controller?.apply(settings: settings)
             if self?.switcherStarted == true { takeover.apply(profiles: settings.profiles) }
             self?.applyAppLevel(settings)
+            self?.applyLaunchAtLogin(settings)
         }
 
         startCLIServer(tracker: tracker, actor: actor, controller: controller)
@@ -121,6 +125,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if self.switcherStarted { takeover.apply(profiles: self.settingsStore.settings.profiles) }
                 self.applyAppLevel(self.settingsStore.settings)
             }
+    }
+
+    // MARK: - Launch at login
+
+    /// `launchAtLogin` as last applied; the system's login item is the source of truth.
+    private var appliedLaunchAtLogin = false
+
+    /// Makes the config's `launchAtLogin` match the system (it can change in System Settings).
+    private func syncLaunchAtLoginSetting() {
+        guard LoginItem.isAvailable else { return }
+        appliedLaunchAtLogin = LoginItem.isRequested
+        settingsStore.settings.launchAtLogin = appliedLaunchAtLogin
+    }
+
+    /// Applies an edit of `launchAtLogin` (config file or Settings) to the system.
+    private func applyLaunchAtLogin(_ settings: AppSettings) {
+        guard LoginItem.isAvailable else { return }
+        if let enable = LoginItemPolicy.change(
+            previousConfig: appliedLaunchAtLogin, newConfig: settings.launchAtLogin, isRequested: LoginItem.isRequested
+        ) {
+            LoginItem.setEnabled(enable)
+        }
+        appliedLaunchAtLogin = settings.launchAtLogin
     }
 
     /// Settings that live outside the switcher: menu bar icon, update checks.

@@ -71,6 +71,8 @@ Vitrin ilk açılışta şu izinleri ister:
 - **Erişilebilirlik** (gerekli) — pencereleri listelemek, öne getirmek ve yönetmek için.
 - **Ekran Kaydı** (isteğe bağlı) — küçük resimler için. İzin verilmezse uygulama simgeleri gösterilir.
 
+Vitrin varsayılan olarak girişte açılır; **Ayarlar → Genel → Girişte başlat** ile kapatabilirsiniz.
+
 ## Kullanım
 
 | Tuşlar | İşlev |

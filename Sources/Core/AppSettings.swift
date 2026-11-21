@@ -22,7 +22,7 @@ public struct AppSettings: Sendable, Hashable, Codable {
         profiles: [ShortcutProfile] = ShortcutProfile.defaultProfiles,
         appExceptions: [AppException] = [],
         appearance: Appearance = Appearance(),
-        launchAtLogin: Bool = false,
+        launchAtLogin: Bool = true,
         showMenuBarIcon: Bool = true,
         trackpadGesture: Bool = false,
         checkForUpdates: Bool = true,

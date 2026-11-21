@@ -7,6 +7,8 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         var showPermissions: () -> Void
         var showSettings: () -> Void
         var showAbout: () -> Void
+        /// The login item was toggled from the menu.
+        var loginItemChanged: () -> Void = {}
     }
 
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -103,6 +105,10 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     @objc private func showPermissions() { actions.showPermissions() }
     @objc private func showSettings() { actions.showSettings() }
     @objc private func showAbout() { actions.showAbout() }
-    @objc private func toggleLogin() { LoginItem.toggle(); refresh() }
+    @objc private func toggleLogin() {
+        LoginItem.toggle()
+        actions.loginItemChanged()
+        refresh()
+    }
     @objc private func quit() { NSApp.terminate(nil) }
 }

@@ -91,20 +91,13 @@ struct GeneralSettingsView: View {
 
     private func refreshLoginItem() {
         guard LoginItem.isAvailable else { return }
-        store.settings.launchAtLogin = LoginItem.isEnabled || LoginItem.requiresApproval
+        store.settings.launchAtLogin = LoginItem.isRequested
     }
 
     private func setLaunchAtLogin(_ enabled: Bool) {
         guard LoginItem.isAvailable else { return }
         actionError = nil
-        // LoginItem.toggle opens System Settings for pending approval. Explicitly
-        // unregister that pending request when the user turns the switch off.
-        if !enabled && LoginItem.requiresApproval {
-            do { try SMAppService.mainApp.unregister() }
-            catch { actionError = String(localized: "Could not change launch at login: \(error.localizedDescription)") }
-        } else if enabled != LoginItem.isEnabled {
-            LoginItem.toggle()
-        }
+        LoginItem.setEnabled(enabled)
         refreshLoginItem()
         if store.settings.launchAtLogin != enabled && actionError == nil {
             actionError = String(localized: "Launch at login could not be changed. Check Login Items in System Settings.")

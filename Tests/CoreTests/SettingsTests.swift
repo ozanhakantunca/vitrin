@@ -160,7 +160,7 @@ import Testing
         """)
         #expect(result.origin == .file && result.error == nil)
         let s = result.settings
-        #expect(s.launchAtLogin == false)
+        #expect(s.launchAtLogin)                               // default
         #expect(s.showDesktopsInTaskView)
         #expect(s.appearance.theme == .system)
         #expect(s.profiles.map(\.id) == ["a", "b"])           // the bad element (42) is skipped, not fatal

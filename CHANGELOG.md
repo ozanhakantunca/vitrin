@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+- Vitrin now opens at login by default (turned on once; turning it off is respected), and the
+  `launchAtLogin` config setting is applied when edited.
+
 ## [0.2.0] - 2026-11-19
 
 ### Added

@@ -65,6 +65,8 @@ On first launch Vitrin asks for:
 - **Accessibility** (required) — to list, focus and control windows.
 - **Screen Recording** (optional) — for thumbnails. Without it, app icons are shown instead.
 
+Vitrin opens at login by default; turn it off in **Settings → General → Launch at login**.
+
 ## Usage
 
 | Keys | Action |

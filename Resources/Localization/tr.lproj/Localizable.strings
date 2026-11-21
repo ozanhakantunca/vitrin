@@ -36,7 +36,6 @@
 "Config file" = "Yapılandırma dosyası";
 "Config file path" = "Yapılandırma dosyası yolu";
 "Continue" = "Devam";
-"Could not change launch at login: %@" = "Girişte başlatma değiştirilemedi: %@";
 "Current Space" = "Geçerli Space";
 "Dark" = "Koyu";
 "Decrease priority" = "Önceliği azalt";
