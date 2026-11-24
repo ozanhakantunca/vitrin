@@ -27,11 +27,11 @@ Keep the SAME certificate/private key across updates to preserve the designated
 requirement. Recreating a certificate with the same name changes that identity.
 Ad-hoc signatures do not provide a stable identity across changed binaries.
 
-Phase 0 deliberately leaves hardened runtime OFF: no notarization is performed,
-and private SkyLight APIs are loaded with dlopen/dlsym. This avoids adding runtime
-restrictions during initial integration. No sandbox or exception entitlements
-are needed. Apple-signed SkyLight itself is compatible with library validation;
-reassess hardened runtime once the complete switcher flow is tested.
+The app is signed with the hardened runtime, so no other process can load its own
+code into Vitrin (DYLD_INSERT_LIBRARIES, unsigned libraries) and use the Accessibility
+and Screen Recording access granted to it. No entitlements are needed: the private
+SkyLight APIs are resolved with dlopen/dlsym from Apple-signed system libraries, which
+library validation allows. No notarization is performed.
 HELP
 }
 
@@ -121,14 +121,14 @@ if [ -z "$identity" ]; then
     identity=$(printf '%s\n' "$identities" | awk '/"Vitrin Self-Signed"/ { print $2; exit }')
     identity=${identity:--}
 fi
-sign_args=(--force --sign "$identity" --identifier io.github.ozanhakantunca.vitrin --timestamp=none)
+sign_args=(--force --sign "$identity" --identifier io.github.ozanhakantunca.vitrin --timestamp=none --options runtime)
 if [ "${#keychain_args[@]}" -gt 0 ]; then
     sign_args+=(--keychain "${keychain_args[0]}")
 fi
 if [ "$identity" = - ]; then
-    printf 'Signing mode: ad-hoc (-); hardened runtime: off\n'
+    printf 'Signing mode: ad-hoc (-); hardened runtime: on\n'
 else
-    printf 'Signing mode: certificate (%s); hardened runtime: off\n' "$identity"
+    printf 'Signing mode: certificate (%s); hardened runtime: on\n' "$identity"
 fi
 codesign "${sign_args[@]}" "$app" || vitrin_die 'Code signing failed. Check the identity, unlocked keychain, user keychain search list, and codesign key access.'
 codesign --verify --deep --strict --verbose=2 "$app"

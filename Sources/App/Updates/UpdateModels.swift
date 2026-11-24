@@ -68,6 +68,11 @@ enum UpdateLogic {
         let assets: [Asset]?
     }
 
+    /// Only https URLs on github.com are ever opened from release data.
+    private static func isGitHubURL(_ url: URL) -> Bool {
+        url.scheme == "https" && url.host?.lowercased() == "github.com"
+    }
+
     /// Parses a `releases/latest` JSON body into an update that is newer than `currentVersion`.
     /// Returns nil for drafts, prereleases (unless the current version is a 0.x prerelease),
     /// malformed JSON, the skipped version, or anything not strictly newer.
@@ -78,7 +83,7 @@ enum UpdateLogic {
               dto.draft != true,
               let candidate = SemVer(dto.tag_name),
               let current = SemVer(currentVersion),
-              let page = URL(string: dto.html_url), page.scheme == "https"
+              let page = URL(string: dto.html_url), isGitHubURL(page)
         else { return nil }
 
         let currentIsZeroPre = current.core[0] == 0
@@ -92,7 +97,7 @@ enum UpdateLogic {
         let dmg = dto.assets?
             .first { $0.name.lowercased().hasSuffix(".dmg") }
             .flatMap { URL(string: $0.browser_download_url) }
-            .flatMap { $0.scheme == "https" ? $0 : nil }
+            .flatMap { isGitHubURL($0) ? $0 : nil }
         return AvailableUpdate(version: version, htmlURL: page, dmgURL: dmg, notes: dto.body ?? "")
     }
 }

@@ -28,3 +28,17 @@ private func release(tag: String, draft: Bool = false, prerelease: Bool = false,
     #expect(UpdateLogic.parseRelease(release(tag: "v0.3.0", dmg: false), currentVersion: "0.1.0", skippedVersion: nil)?.dmgURL == nil)
     #expect(UpdateLogic.parseRelease(Data("{}".utf8), currentVersion: "0.1.0", skippedVersion: nil) == nil)
 }
+
+@Test func releaseURLsMustBeOnGitHub() {
+    func json(page: String, dmg: String) -> Data {
+        Data(#"{"tag_name":"v0.2.0","html_url":"\#(page)","assets":[{"name":"V.dmg","browser_download_url":"\#(dmg)"}]}"#.utf8)
+    }
+    let ok = "https://github.com/o/r/releases/tag/v0.2.0"
+    let dmg = "https://github.com/o/r/releases/download/v0.2.0/V.dmg"
+    #expect(UpdateLogic.parseRelease(json(page: ok, dmg: dmg), currentVersion: "0.1.0")?.dmgURL != nil)
+    #expect(UpdateLogic.parseRelease(json(page: "https://GitHub.com/o/r", dmg: dmg), currentVersion: "0.1.0") != nil)
+    #expect(UpdateLogic.parseRelease(json(page: "https://evil.example/o/r", dmg: dmg), currentVersion: "0.1.0") == nil)
+    #expect(UpdateLogic.parseRelease(json(page: "https://github.com.evil.example/", dmg: dmg), currentVersion: "0.1.0") == nil)
+    let dropped = UpdateLogic.parseRelease(json(page: ok, dmg: "https://evil.example/V.dmg"), currentVersion: "0.1.0")
+    #expect(dropped != nil && dropped?.dmgURL == nil)
+}

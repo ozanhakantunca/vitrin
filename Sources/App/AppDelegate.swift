@@ -182,7 +182,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         )
         cliServer = server
-        if !server.start() { Log.app.error("Could not start the CLI message port") }
+        if !server.start() { Log.app.error("Could not start the CLI socket") }
     }
 
     /// Opening Vitrin.app again (e.g. from Finder or Spotlight) shows Settings — the way back

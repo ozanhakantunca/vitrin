@@ -1,6 +1,5 @@
 import Foundation
 import VitrinCore
-import CoreFoundation
 
 enum CLI {
     static let help = """
@@ -36,17 +35,15 @@ enum CLI {
             request = CLIRequest(command: .show, profileID: args.count == 2 ? args[1] : nil)
         default: return fail("Invalid command or arguments.\n\(help)")
         }
-        guard let port = CFMessagePortCreateRemote(nil, CLICoding.portName as CFString) else {
-            return fail("Vitrin is not running. Open Vitrin.app and try again.")
-        }
+        let responseData: Data
         do {
-            let data = try CLICoding.encode(request)
-            var reply: Unmanaged<CFData>?
-            let status = CFMessagePortSendRequest(port, 1, data as CFData, 2, 2, CFRunLoopMode.defaultMode.rawValue, &reply)
-            guard status == kCFMessagePortSuccess, let responseData = reply?.takeRetainedValue() else {
-                return fail("Could not reach running Vitrin (transport status \(status); request timed out or connection closed).")
-            }
-            let response = try CLICoding.decode(CLIResponse.self, from: responseData as Data)
+            let path = try CLISocket.defaultPath()
+            responseData = try CLISocket.exchange(try CLICoding.encode(request), path: path, verifyPeer: CLIPeerVerification.verify)
+        } catch let error as CLITransportError {
+            return fail(error.message)
+        } catch { return fail("Invalid CLI payload: \(error)") }
+        do {
+            let response = try CLICoding.decode(CLIResponse.self, from: responseData)
             guard response.ok else { return fail(response.error ?? "Vitrin could not perform the command.") }
             if command == "list" {
                 guard let windows = response.windows else { return fail("Invalid response: missing windows.") }

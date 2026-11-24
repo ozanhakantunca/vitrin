@@ -34,8 +34,8 @@ struct CLIResponse: Codable {
 enum CLIProtocolError: Error { case invalidRequest, oversizedPayload }
 
 enum CLICoding {
-    static let portName = "io.github.ozanhakantunca.vitrin.cli"
     static let maximumPayloadSize = 1_048_576
+    static let maximumRequestSize = 65_536
 
     static func encode<T: Encodable>(_ value: T) throws -> Data {
         let encoder = JSONEncoder()
