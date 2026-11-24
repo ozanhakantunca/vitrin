@@ -471,4 +471,18 @@ struct HotkeyMatcherTests {
         #expect(!manager.isSwitcherOpen)
         #expect(manager.openProfileID == nil)
     }
+
+    @Test func resynchronizeDeliversMissedReleaseAndIsNoOpOtherwise() {
+        let matcher = HotkeyMatcher(profiles: [profile()])
+        var state = opened(matcher)
+        // Nothing missed: modifier still held.
+        #expect(matcher.resynchronize(flags: .maskAlternate, state: &state) == nil)
+        // The release happened while the tap was disabled.
+        #expect(matcher.resynchronize(flags: [], state: &state) == .modifiersReleased)
+        // Delivered only once.
+        #expect(matcher.resynchronize(flags: [], state: &state) == nil)
+        // Closed switcher: no event.
+        var idle = HotkeyMatcher.State()
+        #expect(matcher.resynchronize(flags: [], state: &idle) == nil)
+    }
 }

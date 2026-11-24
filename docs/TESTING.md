@@ -43,4 +43,4 @@ Grant Accessibility and Screen Recording before testing. Each step below include
 
 ## Performance
 - Open many windows and type rapidly; filtering and navigation remain responsive.
-- Enable debug commands with `defaults write io.github.ozanhakantunca.vitrin debugCommands -bool true`. Run `swift scripts/vitrin-debug.swift open all-windows`, or substitute `next`, `previous`, `confirm`, `cancel`, `demo 12`, or `dump`; each command performs its named action. Dump writes `$(getconf DARWIN_USER_TEMP_DIR)vitrin-dump.txt`.
+- Enable debug commands with `defaults write io.github.ozanhakantunca.vitrin debugCommands -bool true`. Run `swift scripts/vitrin-debug.swift open all-windows`, or substitute `next`, `previous`, `confirm`, `cancel`, `demo 12`, or `dump`; each command performs its named action. Dump writes `$(getconf DARWIN_USER_TEMP_DIR)vitrin-dump.txt`. Any local process can send these commands while they are enabled, so turn them off afterwards: `defaults delete io.github.ozanhakantunca.vitrin debugCommands`, then restart Vitrin.

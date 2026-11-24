@@ -150,6 +150,8 @@ public final class HotkeyManager: HotkeyHandling {
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let eventTap { CGEvent.tapEnable(tap: eventTap, enable: true) }
+            // Events were lost while the tap was off: a modifier release may have been missed.
+            deliver(matcher.resynchronize(flags: CGEventSource.flagsState(.combinedSessionState), state: &state))
             return Unmanaged.passUnretained(event)
         }
         let inputType: HotkeyMatcher.EventType

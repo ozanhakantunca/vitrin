@@ -141,6 +141,13 @@ struct HotkeyMatcher {
         return deliver ? .modifiersReleased : nil
     }
 
+    /// Adopts the real modifier state after events may have been lost (event tap disabled).
+    /// A missed release of the hold modifiers yields `.modifiersReleased`; otherwise a no-op.
+    func resynchronize(flags: CGEventFlags, state: inout State) -> HotkeyEvent? {
+        state.modifiers = Self.modifiers(from: flags)
+        return synchronize(state: &state)
+    }
+
     func close(state: inout State) {
         state.session = nil
     }

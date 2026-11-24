@@ -4,9 +4,24 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Security
+- The app is signed with the hardened runtime: other processes can no longer load their own code into
+  Vitrin and use its Accessibility and Screen Recording access.
+- The `vitrin` command-line tool talks to the app over a private socket that only Vitrin's own binary
+  can use; other processes could previously read window titles through it.
+- Update links are only followed to github.com. CI actions are pinned to commit hashes.
+
+### Changed
+- Thumbnails load up to four at a time, and thumbnails of closed windows are dropped from memory.
+
 ### Fixed
 - Vitrin now opens at login by default (turned on once; turning it off is respected), and the
   `launchAtLogin` config setting is applied when edited.
+- A syntax error saved while editing `config.json` no longer moves the file away and resets every
+  setting; the previous settings stay active until the file is valid again.
+- The switcher no longer stays open when a modifier release was missed while macOS had paused
+  Vitrin's keyboard event tap.
+- An app could show another app's icon after macOS reused its process id.
 
 ## [0.2.0] - 2026-11-19
 

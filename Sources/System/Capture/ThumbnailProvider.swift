@@ -41,6 +41,8 @@ public final class ThumbnailProvider: ThumbnailProviding, @unchecked Sendable {
         var pending: [CGWindowID: Task<CGImage?, Never>] = [:]
         var content: SCShareableContent?
         var contentDate = Date.distantPast
+        /// In-flight `SCShareableContent` fetch shared by concurrent captures.
+        var contentFetch: Task<SCShareableContent?, Never>?
     }
     private let state = OSAllocatedUnfairLock(initialState: State())
     public init() {}
@@ -61,16 +63,30 @@ public final class ThumbnailProvider: ThumbnailProviding, @unchecked Sendable {
         }
         return await task.value
     }
+    /// Content fetched within the last 2 s if it knows `id`; otherwise one fetch, shared by all callers.
+    private func shareableContent(containing id: CGWindowID) async -> SCShareableContent? {
+        let fresh = state.withLock { Date().timeIntervalSince($0.contentDate) < 2 ? $0.content : nil }
+        if let fresh, fresh.windows.contains(where: { $0.windowID == id }) { return fresh }
+        let fetch = state.withLock { state -> Task<SCShareableContent?, Never> in
+            if let fetch = state.contentFetch { return fetch }
+            // Registered while the lock is held, so the task's own cleanup below cannot run before it.
+            let fetch = Task { [self] () -> SCShareableContent? in
+                let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+                self.state.withLock {
+                    if let content { $0.content = content; $0.contentDate = Date() }
+                    $0.contentFetch = nil
+                }
+                return content
+            }
+            state.contentFetch = fetch
+            return fetch
+        }
+        return await fetch.value
+    }
     private func capture(_ id: CGWindowID, _ size: CGSize) async -> CGImage? {
         defer { _ = state.withLock { $0.pending.removeValue(forKey: id) } }
         do {
-            var content = state.withLock { state in
-                Date().timeIntervalSince(state.contentDate) < 2 ? state.content : nil
-            }
-            if content == nil || !(content?.windows.contains { $0.windowID == id } ?? false) {
-                content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
-                if let content { state.withLock { $0.content = content; $0.contentDate = Date() } }
-            }
+            let content = await shareableContent(containing: id)
             guard let window = content?.windows.first(where: { $0.windowID == id }) else {
                 return state.withLock { $0.cache.get(id)?.0 }
             }

@@ -299,6 +299,23 @@ import Testing
         #expect(try contents() == ["config.json.corrupt-20270115T080000Z", "config.json.corrupt-20270115T080000Z-1"])
     }
 
+    @Test func loadWithoutQuarantineLeavesCorruptFileUntouched() throws {
+        try FileManager.default.createDirectory(at: store.url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let garbage = Data(#"{ "profiles": [ "#.utf8)
+        try garbage.write(to: store.url)
+
+        let result = store.load(quarantineCorrupt: false)
+        #expect(result.origin == .defaultsAfterError)
+        guard case let .corrupt(_, _, backupPath)? = result.error else {
+            Issue.record("expected .corrupt, got \(String(describing: result.error))")
+            return
+        }
+        #expect(backupPath == nil)
+        #expect(try Data(contentsOf: store.url) == garbage)
+        #expect(try contents() == ["config.json"])
+        #expect(!result.error.map(String.init(describing:))!.contains("backup failed"))
+    }
+
     @Test func nonObjectTopLevelIsCorrupt() throws {
         try FileManager.default.createDirectory(at: store.url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try Data("[1, 2]".utf8).write(to: store.url)

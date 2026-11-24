@@ -4,7 +4,7 @@ import Foundation
 public enum ConfigError: Error, Sendable, Hashable, CustomStringConvertible {
     /// The file exists but couldn't be read (permissions, I/O). It was left untouched.
     case unreadable(path: String, reason: String)
-    /// The file isn't valid JSON (or not a JSON object). It was moved/copied to `backupPath`.
+    /// The file isn't valid JSON (or not a JSON object). When quarantining, it was moved/copied to `backupPath`.
     case corrupt(path: String, reason: String, backupPath: String?)
     /// A schema migration step failed. The original file was backed up to `backupPath`.
     case migrationFailed(fromVersion: Int, reason: String, backupPath: String?)
@@ -15,7 +15,7 @@ public enum ConfigError: Error, Sendable, Hashable, CustomStringConvertible {
         case let .unreadable(path, reason):
             return "Couldn't read \(path): \(reason)"
         case let .corrupt(path, reason, backup):
-            return "\(path) is not valid JSON (\(reason)); " + (backup.map { "moved it to \($0)" } ?? "backup failed")
+            return "\(path) is not valid JSON (\(reason))" + (backup.map { "; moved it to \($0)" } ?? "")
         case let .migrationFailed(version, reason, backup):
             return "Couldn't migrate config from schema \(version): \(reason)" + (backup.map { "; original saved at \($0)" } ?? "")
         case let .writeFailed(path, reason):
@@ -115,7 +115,9 @@ public struct ConfigStore: Sendable {
 
     // MARK: Load
 
-    public func load() -> ConfigLoadResult {
+    /// With `quarantineCorrupt` (launch), a corrupt file is moved aside and defaults are returned.
+    /// Without it (live reload), the file is never touched, so the user can keep editing it.
+    public func load(quarantineCorrupt: Bool = true) -> ConfigLoadResult {
         let data: Data
         do {
             data = try Data(contentsOf: url)
@@ -124,11 +126,11 @@ public struct ConfigStore: Sendable {
         } catch {
             return result(.defaults, .defaultsAfterError, error: .unreadable(path: url.path, reason: error.localizedDescription))
         }
-        return decode(data)
+        return decode(data, quarantineCorrupt: quarantineCorrupt)
     }
 
     /// Decodes config bytes. Exposed for tests and for "import settings" features.
-    func decode(_ data: Data) -> ConfigLoadResult {
+    func decode(_ data: Data, quarantineCorrupt: Bool = true) -> ConfigLoadResult {
         if data.allSatisfy({ [0x20, 0x09, 0x0A, 0x0D].contains($0) }) {
             return result(.defaults, .defaultsNoFile)
         }
@@ -137,11 +139,11 @@ public struct ConfigStore: Sendable {
         do {
             let object = try JSONSerialization.jsonObject(with: data, options: [.json5Allowed])
             guard let dictionary = object as? [String: Any] else {
-                return corrupt(data, reason: "top-level value must be an object")
+                return corrupt(data, reason: "top-level value must be an object", quarantine: quarantineCorrupt)
             }
             json = dictionary
         } catch {
-            return corrupt(data, reason: (error as NSError).userInfo[NSDebugDescriptionErrorKey] as? String ?? error.localizedDescription)
+            return corrupt(data, reason: (error as NSError).userInfo[NSDebugDescriptionErrorKey] as? String ?? error.localizedDescription, quarantine: quarantineCorrupt)
         }
 
         var warnings: [String] = []
@@ -155,7 +157,7 @@ public struct ConfigStore: Sendable {
         do {
             migratedFrom = try migrator.migrate(&json)
         } catch let error as ConfigMigrator.MigrationError {
-            let backup = try? backUp(data, suffix: "pre-migration", moveOriginal: false)
+            let backup = quarantineCorrupt ? try? backUp(data, suffix: "pre-migration", moveOriginal: false) : nil
             return result(.defaults, .defaultsAfterError, error: .migrationFailed(
                 fromVersion: error.fromVersion, reason: String(describing: error.underlying), backupPath: backup?.path))
         } catch {
@@ -174,7 +176,7 @@ public struct ConfigStore: Sendable {
                                     migratedFromVersion: migratedFrom, isFromNewerVersion: isNewer)
         } catch {
             // Unreachable in practice (every field is tolerant), but never crash.
-            return corrupt(data, reason: describe(error))
+            return corrupt(data, reason: describe(error), quarantine: quarantineCorrupt)
         }
     }
 
@@ -182,8 +184,8 @@ public struct ConfigStore: Sendable {
         ConfigLoadResult(settings: settings, origin: origin, error: error, warnings: [], migratedFromVersion: nil, isFromNewerVersion: false)
     }
 
-    private func corrupt(_ data: Data, reason: String) -> ConfigLoadResult {
-        let backup = try? backUp(data, suffix: "corrupt", moveOriginal: true)
+    private func corrupt(_ data: Data, reason: String, quarantine: Bool) -> ConfigLoadResult {
+        let backup = quarantine ? try? backUp(data, suffix: "corrupt", moveOriginal: true) : nil
         return result(.defaults, .defaultsAfterError, error: .corrupt(path: url.path, reason: reason, backupPath: backup?.path))
     }
 

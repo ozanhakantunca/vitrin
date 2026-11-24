@@ -38,8 +38,14 @@ final class SettingsStore: ObservableObject {
 
     /// Re-reads the config file (called by the file watcher or "Reload" in the UI).
     func reloadFromDisk() {
-        let result = store.load()
-        guard result.settings != settings || result.error != nil else { return }
+        let result = store.load(quarantineCorrupt: false)
+        if let error = result.error {
+            // Keep the live settings while the file is mid-edit; the file itself is left untouched.
+            lastError = "\(error). The file was left untouched and your previous settings stay active."
+            Log.app.error("Config reload failed: \(self.lastError ?? "", privacy: .public)")
+            return
+        }
+        guard result.settings != settings || lastError != nil else { return }
         isApplyingDiskState = true
         settings = result.settings
         isApplyingDiskState = false

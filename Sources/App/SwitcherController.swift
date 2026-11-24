@@ -26,6 +26,7 @@ final class SwitcherController {
     var selectedIndex = 0
     var openProfile: ShortcutProfile?
     private var thumbnailTask: Task<Void, Never>?
+    private var trackedWindowIDs: Set<CGWindowID> = []
 
     var isOpen: Bool { openProfile != nil }
     /// True while the current session was opened by the trackpad gesture.
@@ -72,6 +73,7 @@ final class SwitcherController {
     @discardableResult
     func start() -> Bool {
         tracker.start()
+        forgetClosedWindows()
         hotkeys.update(exceptions: settings.appExceptions)
         let ok = hotkeys.start(profiles: isPaused ? [] : settings.activeProfiles)
         Log.app.info("Switcher start: event tap \(ok ? "installed" : "unavailable", privacy: .public)")
@@ -105,7 +107,10 @@ final class SwitcherController {
 
     private func wireCallbacks() {
         hotkeys.onEvent = { [weak self] event in self?.handle(event) }
-        tracker.onChange = { [weak self] in self?.refreshDesktops() }
+        tracker.onChange = { [weak self] in
+            self?.forgetClosedWindows()
+            self?.refreshDesktops()
+        }
         desktopPanel?.onDesktopClick = { [weak self] index in self?.pickDesktop(at: index) }
         panel.onHover = { [weak self] index in self?.select(index) }
         panel.onClick = { [weak self] index in
@@ -155,6 +160,8 @@ final class SwitcherController {
 
     func open(profileID: String, reverse: Bool) {
         guard let profile = settings.profiles.first(where: { $0.id == profileID && $0.isEnabled }) else { return }
+        forgetClosedWindows()
+        Self.pruneIconCache(&Self.iconCache, keeping: tracker.windows)
         let context = tracker.currentContext()
         let windows = profile.windows(
             from: tracker.windows,
@@ -169,7 +176,7 @@ final class SwitcherController {
             Log.app.info("Switcher: no windows for profile \(profileID, privacy: .public)")
             return
         }
-        allItems = windows.map { SwitcherItem(window: $0, appIcon: Self.icon(for: $0.pid)) }
+        allItems = windows.map { SwitcherItem(window: $0, appIcon: Self.icon(for: $0)) }
         items = allItems
         query = ""
         selectedIndex = Self.initialSelection(count: items.count, reverse: reverse)
@@ -242,6 +249,13 @@ final class SwitcherController {
         loadThumbnails()
     }
 
+    /// Drops cached thumbnails of windows that are no longer tracked.
+    private func forgetClosedWindows() {
+        let current = Set(tracker.windows.map(\.id))
+        for id in trackedWindowIDs.subtracting(current) { thumbnails.invalidate(windowID: id) }
+        trackedWindowIDs = current
+    }
+
     // MARK: - Task View desktops
 
     private var recentWindows: [WindowInfo] {
@@ -267,7 +281,7 @@ final class SwitcherController {
     }
 
     /// The tracker inventory in MRU order, independent of the profile and its search query.
-    static func desktopItem(for desktop: Desktop, windows: [WindowInfo], icon: (pid_t) -> NSImage?) -> DesktopItem {
+    static func desktopItem(for desktop: Desktop, windows: [WindowInfo], icon: (WindowInfo) -> NSImage?) -> DesktopItem {
         let members = windows.filter { $0.spaceIDs.contains(desktop.id) }
         let title: String
         switch desktop.kind {
@@ -282,7 +296,7 @@ final class SwitcherController {
         var icons: [NSImage] = []
         for window in members {
             let app = window.bundleIdentifier ?? String(window.pid)
-            if apps.insert(app).inserted, let image = icon(window.pid) { icons.append(image) }
+            if apps.insert(app).inserted, let image = icon(window) { icons.append(image) }
             if icons.count == 4 { break }
         }
         return DesktopItem(desktop: desktop, title: title, appIcons: icons)
@@ -433,6 +447,8 @@ final class SwitcherController {
 
     // MARK: - Thumbnails
 
+    static let maxConcurrentCaptures = 4
+
     func loadThumbnails() {
         thumbnailTask?.cancel()
         let cached = items.compactMap { item in thumbnails.cachedThumbnail(for: item.id).map { (item.id, $0) } }
@@ -446,11 +462,20 @@ final class SwitcherController {
         let size = panel.thumbnailPixelSize
         let provider = thumbnails
         thumbnailTask = Task { [weak self] in
-            for id in ids {
-                if Task.isCancelled { return }
-                guard let image = await provider.thumbnail(for: id, maxPixelSize: size) else { continue }
-                if Task.isCancelled { return }
-                self?.panel.updateThumbnail(windowID: id, image: image)
+            // At most `maxConcurrentCaptures` in flight, started in priority order; results land on the main actor.
+            await withTaskGroup(of: (CGWindowID, CGImage?).self) { group in
+                var pending = ids.makeIterator()
+                for _ in 0..<Self.maxConcurrentCaptures {
+                    guard let id = pending.next() else { break }
+                    group.addTask { (id, await provider.thumbnail(for: id, maxPixelSize: size)) }
+                }
+                while let (id, image) = await group.next() {
+                    if Task.isCancelled { return }
+                    if let image { self?.panel.updateThumbnail(windowID: id, image: image) }
+                    if let next = pending.next() {
+                        group.addTask { (next, await provider.thumbnail(for: next, maxPixelSize: size)) }
+                    }
+                }
             }
         }
     }
@@ -471,12 +496,25 @@ final class SwitcherController {
         }
     }
 
-    private static var iconCache: [pid_t: NSImage] = [:]
+    /// App identity: a pid alone can be reused by the OS for another app.
+    struct IconKey: Hashable {
+        var pid: pid_t
+        var bundleIdentifier: String?
+    }
 
-    private static func icon(for pid: pid_t) -> NSImage? {
-        if let cached = iconCache[pid] { return cached }
-        let icon = NSRunningApplication(processIdentifier: pid)?.icon
-        iconCache[pid] = icon
+    private static var iconCache: [IconKey: NSImage] = [:]
+
+    /// Removes icons whose app is no longer behind any tracked window.
+    static func pruneIconCache(_ cache: inout [IconKey: NSImage], keeping windows: [WindowInfo]) {
+        let live = Set(windows.map { IconKey(pid: $0.pid, bundleIdentifier: $0.bundleIdentifier) })
+        cache = cache.filter { live.contains($0.key) }
+    }
+
+    private static func icon(for window: WindowInfo) -> NSImage? {
+        let key = IconKey(pid: window.pid, bundleIdentifier: window.bundleIdentifier)
+        if let cached = iconCache[key] { return cached }
+        let icon = NSRunningApplication(processIdentifier: window.pid)?.icon
+        iconCache[key] = icon
         return icon
     }
 }

@@ -38,11 +38,28 @@ import VitrinSystem
     func update(profiles: [ShortcutProfile]) { self.profiles.append(profiles) }
     func update(exceptions: [AppException]) { self.exceptions.append(exceptions) }
 }
-private final class FakeThumbnails: ThumbnailProviding {
-    let isAvailable = false
+private final class FakeThumbnails: ThumbnailProviding, @unchecked Sendable {
+    private let lock = NSLock()
+    private var _invalidated: [CGWindowID] = []
+    private var _requested: [CGWindowID] = []
+    private var running = 0
+    private var _maxRunning = 0
+    /// Non-zero makes captures take this long and return an image.
+    var captureDelay: UInt64 = 0
+    var isAvailable: Bool { captureDelay > 0 }
+    var invalidated: [CGWindowID] { lock.withLock { _invalidated } }
+    var requested: [CGWindowID] { lock.withLock { _requested } }
+    var maxRunning: Int { lock.withLock { _maxRunning } }
     func cachedThumbnail(for windowID: CGWindowID) -> CGImage? { nil }
-    func thumbnail(for windowID: CGWindowID, maxPixelSize: CGSize) async -> CGImage? { nil }
-    func invalidate(windowID: CGWindowID) {}
+    func thumbnail(for windowID: CGWindowID, maxPixelSize: CGSize) async -> CGImage? {
+        guard captureDelay > 0 else { return nil }
+        lock.withLock { _requested.append(windowID); running += 1; _maxRunning = max(_maxRunning, running) }
+        try? await Task.sleep(nanoseconds: captureDelay)
+        lock.withLock { running -= 1 }
+        return CGContext(data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 0,
+                         space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)?.makeImage()
+    }
+    func invalidate(windowID: CGWindowID) { lock.withLock { _invalidated.append(windowID) } }
     func removeAll() {}
 }
 @MainActor private final class FakeSpaceSwitcher: SpaceSwitching {
@@ -77,7 +94,7 @@ private final class FakeThumbnails: ThumbnailProviding {
     func updateDesktopSelection(_ index: Int?) { desktopSelection = index }
     var isVisible = false
     let columns = 3
-    let thumbnailPixelSize = CGSize.zero
+    var thumbnailPixelSize = CGSize.zero
     var onHover: ((Int) -> Void)?
     var onClick: ((Int) -> Void)?
     var onAction: ((Int, WindowAction) -> Void)?
@@ -87,13 +104,14 @@ private final class FakeThumbnails: ThumbnailProviding {
     var badges: [CGWindowID: SwitcherBadges] = [:]
     func show(items: [SwitcherItem], selectedIndex: Int, profile: ShortcutProfile, on screen: NSScreen) { self.items = items; selection = selectedIndex; isVisible = true }
     func updateSelection(_ index: Int) { selection = index }
-    func updateThumbnail(windowID: CGWindowID, image: CGImage) {}
+    var thumbnailUpdates: [CGWindowID] = []
+    func updateThumbnail(windowID: CGWindowID, image: CGImage) { thumbnailUpdates.append(windowID) }
     func hide() { isVisible = false; desktopSelection = nil; desktops = [] }
     func setSearchQuery(_ query: String) { self.query = query }
     func setBadges(_ badges: [CGWindowID: SwitcherBadges]) { self.badges = badges }
 }
 @MainActor private func fixture(
-    _ count: Int, settings: AppSettings = .defaults, spaces: SpaceSwitching? = nil
+    _ count: Int, settings: AppSettings = .defaults, spaces: SpaceSwitching? = nil, thumbnails: FakeThumbnails = FakeThumbnails()
 ) -> (SwitcherController, FakeTracker, FakeActor, FakeHotkeys, FakePanel) {
     let tracker = FakeTracker(); let actor = FakeActor(); let hotkeys = FakeHotkeys(); let panel = FakePanel()
     tracker.windows = (0..<count).map { (index: Int) -> WindowInfo in
@@ -103,7 +121,7 @@ private final class FakeThumbnails: ThumbnailProviding {
         return WindowInfo(id: CGWindowID(index + 1), pid: pid, appName: appName, title: "Window \(index)", frame: frame)
     }
     let controller = SwitcherController(settings: settings, tracker: tracker, actor: actor, hotkeys: hotkeys,
-                                        thumbnails: FakeThumbnails(), panel: panel, spaces: spaces)
+                                        thumbnails: thumbnails, panel: panel, spaces: spaces)
     return (controller, tracker, actor, hotkeys, panel)
 }
 @MainActor @Test func controllerOpeningAndNavigation() {
@@ -317,8 +335,8 @@ private func taskSettings() -> AppSettings {
         windows.append(WindowInfo(id: id, pid: pid_t(id), spaceIDs: [30]))
     }
     var requested: [pid_t] = []
-    let item = SwitcherController.desktopItem(for: desktop, windows: windows) { pid in
-        requested.append(pid)
+    let item = SwitcherController.desktopItem(for: desktop, windows: windows) { window in
+        requested.append(window.pid)
         return NSImage(size: NSSize(width: 32, height: 32))
     }
     #expect(item.title == "Player" && item.appIcons.count == 4)
@@ -365,4 +383,43 @@ private func taskSettings() -> AppSettings {
     tile.mouseDown(with: event)
     #expect(clicked == 1)
     #expect(host.hitTest(CGPoint(x: frame.maxX + 1, y: frame.midY)) === host)
+}
+
+@MainActor @Test func closedWindowsAreInvalidatedInTheThumbnailCache() {
+    let thumbnails = FakeThumbnails()
+    let (c, tracker, _, _, _) = fixture(5, thumbnails: thumbnails)
+    c.start()
+    tracker.onChange?()
+    #expect(thumbnails.invalidated.isEmpty)
+    tracker.windows.removeAll { $0.id == 2 || $0.id == 5 }
+    tracker.onChange?()
+    #expect(Set(thumbnails.invalidated) == [2, 5])
+    tracker.onChange?()
+    #expect(thumbnails.invalidated.count == 2)
+}
+
+@MainActor @Test func thumbnailsLoadWithBoundedConcurrencyInPriorityOrder() async throws {
+    guard NSScreen.main != nil else { return }
+    let thumbnails = FakeThumbnails()
+    thumbnails.captureDelay = 30_000_000
+    let (c, _, _, _, panel) = fixture(10, thumbnails: thumbnails)
+    panel.thumbnailPixelSize = CGSize(width: 200, height: 120)
+    c.open(profileID: "all-windows", reverse: false)
+    for _ in 0..<200 where panel.thumbnailUpdates.count < 10 { try await Task.sleep(nanoseconds: 20_000_000) }
+    #expect(Set(panel.thumbnailUpdates) == Set((1...10).map { CGWindowID($0) }))
+    #expect(thumbnails.maxRunning > 1 && thumbnails.maxRunning <= SwitcherController.maxConcurrentCaptures)
+    #expect(thumbnails.requested.first == CGWindowID(panel.items[panel.selection].id))
+    c.close()
+}
+
+@MainActor @Test func iconCachePrunesAppsWithoutTrackedWindows() {
+    typealias Key = SwitcherController.IconKey
+    let image = NSImage(size: NSSize(width: 8, height: 8))
+    var cache: [Key: NSImage] = [
+        Key(pid: 1, bundleIdentifier: "a"): image,
+        Key(pid: 2, bundleIdentifier: "b"): image,
+        Key(pid: 1, bundleIdentifier: "reused"): image,
+    ]
+    SwitcherController.pruneIconCache(&cache, keeping: [WindowInfo(id: 1, pid: 1, bundleIdentifier: "a")])
+    #expect(Array(cache.keys) == [Key(pid: 1, bundleIdentifier: "a")])
 }
