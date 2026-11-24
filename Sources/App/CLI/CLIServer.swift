@@ -35,6 +35,7 @@ final class CLIServer {
         }
         guard listener.start() else { return false }
         self.listener = listener
+        CLIPeerVerification.warmUp()
         return true
     }
 

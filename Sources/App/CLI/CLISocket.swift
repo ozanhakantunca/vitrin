@@ -33,7 +33,8 @@ enum CLITransportError: Error, Equatable {
 /// Frames are a 4-byte big-endian length followed by JSON.
 enum CLISocket {
     static let fileName = "vitrin-cli.sock"
-    static let timeout: TimeInterval = 2
+    /// Per read or write of one frame. Generous, because the first signature check of a process is slow.
+    static let timeout: TimeInterval = 5
 
     /// `<DARWIN_USER_TEMP_DIR>/vitrin-cli.sock`. confstr is used instead of TMPDIR, which callers control.
     static func defaultPath() throws -> String {

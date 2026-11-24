@@ -19,6 +19,11 @@ enum CLIPeerVerification {
         return DevelopmentFallback.peerHasOurExecutable(token)
     }
 
+    /// Resolves our own signature in the background, so the first request does not pay for it.
+    static func warmUp() {
+        DispatchQueue.global(qos: .utility).async { _ = SelfIdentity.shared }
+    }
+
     /// The peer's running code (looked up by audit token, so pid reuse cannot fool it) must
     /// satisfy our own designated requirement.
     private static func peer(_ token: audit_token_t, satisfies requirement: SecRequirement) -> Bool {

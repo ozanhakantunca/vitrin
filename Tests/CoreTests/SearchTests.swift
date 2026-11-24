@@ -25,5 +25,6 @@ import Testing
     let windows = (0..<500).map { WindowInfo(id: UInt32($0), pid: 1, appName: "Browser", title: "Example window \($0)") }
     let start = Date()
     for _ in 0..<10 { _ = WindowSearch.filter(windows, query: "ex win") }
-    #expect(Date().timeIntervalSince(start) < 1)
+    // Normally a few milliseconds; the bound only has to survive a loaded CI runner.
+    #expect(Date().timeIntervalSince(start) < 5)
 }

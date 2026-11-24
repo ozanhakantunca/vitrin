@@ -9,8 +9,15 @@ private func makeDirectory(mode: mode_t = 0o700) throws -> String {
     return directory
 }
 
+/// Runs blocking socket I/O on a GCD thread, so it never occupies the Swift concurrency pool.
+private func blocking<T: Sendable>(_ body: @escaping @Sendable () throws -> T) async throws -> T {
+    try await withCheckedThrowingContinuation { continuation in
+        DispatchQueue.global().async { continuation.resume(with: Result { try body() }) }
+    }
+}
+
 private func exchange(_ data: Data, path: String, verifyPeer: @escaping CLIPeerVerifier = CLIPeerVerification.verify) async throws -> Data {
-    try await Task.detached { try CLISocket.exchange(data, path: path, verifyPeer: verifyPeer) }.value
+    try await blocking { try CLISocket.exchange(data, path: path, verifyPeer: verifyPeer) }
 }
 
 private func send(_ request: CLIRequest, path: String) async throws -> CLIResponse {
@@ -19,12 +26,12 @@ private func send(_ request: CLIRequest, path: String) async throws -> CLIRespon
 
 /// Writes raw bytes (no client-side framing checks) and reads one response frame.
 private func sendRaw(_ bytes: Data, path: String) async throws -> CLIResponse {
-    let data = try await Task.detached { () throws -> Data in
+    let data = try await blocking { () throws -> Data in
         let fd = try CLISocket.connect(to: path)
         defer { close(fd) }
         _ = bytes.withUnsafeBytes { send(fd, $0.baseAddress!, $0.count, 0) }
         return try CLISocket.readFrame(fd, maximumSize: CLICoding.maximumPayloadSize)
-    }.value
+    }
     return try CLICoding.decode(CLIResponse.self, from: data)
 }
 
@@ -51,6 +58,8 @@ private func frame(_ payload: Data, declaredLength: UInt32? = nil) -> Data {
     }
 }
 
+/// Serialized: each test owns a listening socket and waits on real I/O timeouts.
+@Suite(.serialized) struct CLITests {
 @MainActor @Test func cliRoundTripWithRealVerification() async throws {
     let directory = try makeDirectory()
     let path = try CLISocket.path(inDirectory: directory)
@@ -183,4 +192,5 @@ private func frame(_ payload: Data, declaredLength: UInt32? = nil) -> Data {
     let replacement = Recorder().server(path: path, verifyPeer: { _ in false })
     #expect(replacement.start())
     replacement.stop()
+}
 }
