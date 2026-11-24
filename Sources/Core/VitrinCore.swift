@@ -5,5 +5,5 @@
 // is `Sendable` and can be unit-tested without a WindowServer session.
 
 public enum VitrinCore {
-    public static let version = "0.2.0"
+    public static let version = "0.2.1"
 }

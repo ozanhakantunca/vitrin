@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-24
+
 ### Security
 - The app is signed with the hardened runtime: other processes can no longer load their own code into
   Vitrin and use its Accessibility and Screen Recording access.
