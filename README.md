@@ -107,9 +107,8 @@ waits about a second before quitting an app, so a window that reopens right away
 running. Dialogs, open and save panels, and windows that can't be minimized (About, most Settings
 windows) don't count. It never quits an app that had no window open to begin with, Finder, or
 menu-bar-only apps.
-To keep a particular app running, add it in **Settings → Exceptions** and tick **Keep running**. In
-`config.json` the keys are `"quitAppsWhenLastWindowCloses": true` and, on an exception,
-`"keepRunningWhenLastWindowCloses": true`.
+To keep a particular app running, give it a **Keep running** exception (see
+[App exceptions](#app-exceptions)).
 
 ## Configuration
 
@@ -129,6 +128,48 @@ for the current app's windows:
 ```
 
 A `profiles` list replaces the built-in shortcuts, so include every shortcut you want to keep.
+
+Keys you leave out keep their defaults, so a config file only needs the settings you change.
+
+### App exceptions
+
+An exception changes how Vitrin treats one app. Add one in **Settings → Exceptions** with **Add
+running app** or **Choose app…**, then set any of these options for it:
+
+| Option | `config.json` key | Effect |
+|---|---|---|
+| Hide from switcher | `"hide": "always"` | The app's windows never appear in the switcher (default `"never"`). |
+| Ignore shortcuts | `"ignoreShortcutsWhenFrontmost": true` | While the app is in front, Vitrin's shortcuts go to the app instead. Use it for VMs and remote desktops. |
+| Keep running | `"keepRunningWhenLastWindowCloses": true` | The app keeps running when its last window closes, even with the quit option on. |
+
+In `config.json`, each exception names the app by its bundle identifier. Only `bundleIdentifier` is
+required; options you leave out are off. To find an app's bundle identifier:
+
+```sh
+osascript -e 'id of app "Terminal"'    # com.apple.Terminal
+```
+
+Some common setups:
+
+```json
+{
+  "quitAppsWhenLastWindowCloses": true,
+  "appExceptions": [
+    { "bundleIdentifier": "com.utmapp.UTM", "ignoreShortcutsWhenFrontmost": true },
+    { "bundleIdentifier": "com.apple.Terminal", "keepRunningWhenLastWindowCloses": true },
+    { "bundleIdentifier": "com.apple.Music", "keepRunningWhenLastWindowCloses": true, "hide": "always" }
+  ]
+}
+```
+
+- **UTM:** a virtual machine that receives Alt+Tab itself.
+- **Terminal:** stays open after its last window closes. Use this for terminals, editors and agent apps
+  whose sessions or background work should survive.
+- **Music:** keeps playing without a window and stays out of the switcher.
+
+Vitrin ships built-in exceptions for common VM, remote-desktop and game-streaming apps. If you write an
+`appExceptions` list yourself, it replaces those built-in exceptions. Copy the ones you need from
+**Settings → Exceptions** before you edit the file, or add your apps in Settings instead.
 
 ## Command line
 
