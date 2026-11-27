@@ -24,6 +24,10 @@ public struct WindowInfo: Sendable, Identifiable, Hashable {
     /// The owning application is hidden (⌘H).
     public var isAppHidden: Bool
     public var isFullscreen: Bool
+    /// A regular window of its app: AX subrole `AXStandardWindow` and minimizable (unless it is minimized or
+    /// fullscreen). Dialogs, open/save panels, About and settings windows are not. Minimized windows and
+    /// windows of hidden apps may briefly report a dialog subrole.
+    public var isStandardWindow: Bool
     /// Spaces the window is on. Empty = unknown; more than one = window is on several / all Spaces.
     public var spaceIDs: [SpaceID]
     /// The display the window is (mostly) on. `nil` = unknown.
@@ -42,6 +46,7 @@ public struct WindowInfo: Sendable, Identifiable, Hashable {
         isMinimized: Bool = false,
         isAppHidden: Bool = false,
         isFullscreen: Bool = false,
+        isStandardWindow: Bool = true,
         spaceIDs: [SpaceID] = [],
         displayID: CGDirectDisplayID? = nil,
         lastFocusSequence: UInt64? = nil
@@ -55,6 +60,7 @@ public struct WindowInfo: Sendable, Identifiable, Hashable {
         self.isMinimized = isMinimized
         self.isAppHidden = isAppHidden
         self.isFullscreen = isFullscreen
+        self.isStandardWindow = isStandardWindow
         self.spaceIDs = spaceIDs
         self.displayID = displayID
         self.lastFocusSequence = lastFocusSequence

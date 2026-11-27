@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let settingsStore = SettingsStore()
     private var switcher: SwitcherController?
+    private var lastWindowQuitter: LastWindowQuitter?
     private var switcherStarted = false
     private var permissionSink: AnyCancellable?
     private var debugCommands: DebugCommands?
@@ -81,12 +82,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Task view: clicking the dimmed background cancels.
         panel.onBackgroundClick = { [weak controller] in controller?.close() }
         switcher = controller
+        let quitter = LastWindowQuitter(settings: settings, windows: { tracker.windows },
+                                        isTracking: { tracker.isObservingAccessibility })
+        lastWindowQuitter = quitter
+        controller.onWindowsChange = { [weak quitter] in quitter?.evaluate() }
         // Only take over the native ⌘Tab once our event tap is live; otherwise the user would be left
         // with no ⌘Tab at all (e.g. Accessibility not granted yet).
         let takeover = HotkeyTakeover()
         self.takeover = takeover
         settingsStore.onChange = { [weak self, weak controller] settings in
             controller?.apply(settings: settings)
+            quitter.apply(settings: settings)
             if self?.switcherStarted == true { takeover.apply(profiles: settings.profiles) }
             self?.applyAppLevel(settings)
             self?.applyLaunchAtLogin(settings)

@@ -32,6 +32,7 @@ sürümü yoktur.
 - **İsteğe bağlı ⌘Tab devralma**; Vitrin kapanınca macOS'un ⌘Tab'ı otomatik geri gelir.
 - **Uygulama istisnaları** — sanal makineler ve uzak masaüstü uygulamaları Alt+Tab'ı kendileri
   almaya devam eder.
+- **İsteğe bağlı: son penceresi kapanan uygulamadan çıkma**, Windows'taki gibi.
 - **Düz metin ayar dosyası**: `~/.config/vitrin/config.json`, değişiklikler anında uygulanır;
   dotfiles ile uyumlu.
 - **Komut satırı aracı**: `vitrin list`, `vitrin focus`, `vitrin show`.
@@ -103,6 +104,18 @@ macOS modundaki bir Windows klavyesinde **Alt, ⌥** ve **Windows tuşu, ⌘** o
 
 Karabiner-Elements gibi bir tuş eşleme aracında Win+Tab (⌘Tab) için ayrı bir kural varsa kaldırın;
 o kural tuşu Vitrin'den önce yakalar.
+
+macOS'ta bir uygulamanın son penceresini kapatınca uygulama Dock'ta çalışmaya devam eder. Bunun yerine
+uygulamadan çıkılmasını istiyorsanız, Windows'taki gibi, **Ayarlar → Genel → Son penceresi kapanan
+uygulamadan çık** seçeneğini açın. Vitrin uygulamayı ⌘Q gibi kapatır; kaydedilmemiş değişiklikler yine
+sorulur. Küçültme, gizleme (⌘H), tam ekran ve masaüstü değiştirme sayılmaz; diğer masaüstlerindeki
+pencereler de uygulamayı açık tutar. Vitrin bir uygulamadan çıkmadan önce yaklaşık bir saniye bekler;
+pencere hemen yeniden açılırsa uygulama çalışmaya devam eder. Diyaloglar, açma/kaydetme panelleri ve
+küçültülemeyen pencereler (Hakkında, çoğu Ayarlar penceresi) sayılmaz. Hiç pencere açmamış uygulamalara,
+Finder'a ve yalnızca menü çubuğunda duran uygulamalara dokunmaz. Belirli bir uygulamayı açık tutmak
+için onu **Ayarlar → İstisnalar**'a ekleyip **Açık tut** kutusunu işaretleyin. `config.json`'daki
+anahtarlar `"quitAppsWhenLastWindowCloses": true` ve istisna içinde
+`"keepRunningWhenLastWindowCloses": true` olur.
 
 ## Ayarlar
 

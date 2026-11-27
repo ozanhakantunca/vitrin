@@ -93,6 +93,8 @@ import Testing
         settings.launchAtLogin = true
         settings.showMenuBarIcon = false
         settings.showDesktopsInTaskView = false
+        settings.quitAppsWhenLastWindowCloses = true
+        settings.appExceptions.append(AppException(bundleIdentifier: "com.mitchellh.ghostty", keepRunningWhenLastWindowCloses: true))
 
         let data = try ConfigStore.encode(settings)
         let decoded = try JSONDecoder().decode(AppSettings.self, from: data)
@@ -134,6 +136,27 @@ import Testing
         #expect(result.settings.profiles.count == 1)
         #expect(profile.name == "Mine" && profile.isEnabled && profile.style == .thumbnails && profile.filters == WindowFilters())
         #expect(!profile.id.isEmpty)
+    }
+
+    @Test func configsWithoutQuitOnLastWindowKeysStillLoad() {
+        // A 0.2.x config: no `quitAppsWhenLastWindowCloses`, exceptions without `keepRunningWhenLastWindowCloses`.
+        let result = load(#"{ "schemaVersion": 1, "appExceptions": [ { "bundleIdentifier": "com.utmapp.UTM", "ignoreShortcutsWhenFrontmost": true } ] }"#)
+        #expect(result.error == nil && result.warnings.isEmpty)
+        #expect(!result.settings.quitAppsWhenLastWindowCloses)
+        #expect(result.settings.appExceptions == [AppException(bundleIdentifier: "com.utmapp.UTM", ignoreShortcutsWhenFrontmost: true)])
+        #expect(!result.settings.appExceptions[0].keepRunningWhenLastWindowCloses)
+    }
+
+    @Test func quitOnLastWindowKeysAreRead() {
+        let result = load(#"{ "quitAppsWhenLastWindowCloses": true, "appExceptions": [ { "bundleIdentifier": "com.mitchellh.ghostty", "keepRunningWhenLastWindowCloses": true } ] }"#)
+        #expect(result.error == nil && result.warnings.isEmpty)
+        #expect(result.settings.quitAppsWhenLastWindowCloses)
+        #expect(result.settings.exception(forBundleIdentifier: "com.mitchellh.ghostty")?.keepRunningWhenLastWindowCloses == true)
+        // A wrong type falls back to the default with a warning, without touching the rest.
+        let bad = load(#"{ "quitAppsWhenLastWindowCloses": "yes", "appExceptions": [ { "bundleIdentifier": "a.b", "keepRunningWhenLastWindowCloses": 3 } ] }"#)
+        #expect(!bad.settings.quitAppsWhenLastWindowCloses)
+        #expect(bad.settings.appExceptions == [AppException(bundleIdentifier: "a.b")])
+        #expect(bad.warnings.count == 2)
     }
 
     @Test func explicitEmptyProfilesIsRespected() {

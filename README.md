@@ -28,6 +28,7 @@ desktop, with a live preview of each one. Everything is free; there is no paid t
   and style.
 - **Optional ⌘Tab takeover**, restored automatically when Vitrin quits.
 - **App exceptions** so VMs and remote desktops still receive Alt+Tab.
+- **Optional: quit apps when their last window closes**, as on Windows.
 - **Plain-text config** at `~/.config/vitrin/config.json`, reloaded live — dotfiles friendly.
 - **Command-line tool**: `vitrin list`, `vitrin focus`, `vitrin show`.
 - Optional three-finger trackpad swipe, update notifications, English and Turkish interface.
@@ -97,6 +98,18 @@ A Windows keyboard in macOS mode sends **Alt as ⌥** and the **Windows key as �
 
 If a key remapper such as Karabiner-Elements has its own rule for Win+Tab (⌘Tab), remove that rule —
 it catches the key before Vitrin does.
+
+On macOS, closing an app's last window leaves the app running in the Dock. Turn on **Settings → General
+→ Quit apps when their last window closes** to quit it instead, as Windows does. Vitrin quits the app
+the way ⌘Q does, so unsaved changes are still asked about. Minimizing, hiding (⌘H), fullscreen and
+switching desktops don't count, and windows on other desktops still keep an app open. Vitrin also
+waits about a second before quitting an app, so a window that reopens right away keeps the app
+running. Dialogs, open and save panels, and windows that can't be minimized (About, most Settings
+windows) don't count. It never quits an app that had no window open to begin with, Finder, or
+menu-bar-only apps.
+To keep a particular app running, add it in **Settings → Exceptions** and tick **Keep running**. In
+`config.json` the keys are `"quitAppsWhenLastWindowCloses": true` and, on an exception,
+`"keepRunningWhenLastWindowCloses": true`.
 
 ## Configuration
 

@@ -38,6 +38,7 @@ extension Tracking {
             kAXMinimizedAttribute as String,
             fullScreenAttribute,
             kAXMainAttribute as String,
+            kAXMinimizeButtonAttribute as String,
         ]
 
         static func classify(_ error: AXError) -> AXRead<Never>? {
@@ -65,6 +66,10 @@ extension Tracking {
             attributes.isMinimized = (value(5) as? NSNumber)?.boolValue
             attributes.isFullscreen = (value(6) as? NSNumber)?.boolValue
             attributes.isMain = (value(7) as? NSNumber)?.boolValue
+            if attributes.subrole == (kAXStandardWindowSubrole as String), attributes.isMinimized != true,
+               attributes.isFullscreen != true {
+                attributes.canMinimize = value(8).flatMap(asElement).map(isEnabled) ?? false
+            }
             // Every attribute failing usually means the element died between listing and reading.
             if attributes.role == nil && attributes.subrole == nil && attributes.size == nil {
                 var probe: CFTypeRef?
@@ -90,6 +95,13 @@ extension Tracking {
                 windows.append(extra)
             }
             return .value((windows, focused))
+        }
+
+        /// `kAXEnabled` of a button (one more round-trip); unknown counts as disabled.
+        private static func isEnabled(_ button: AXUIElement) -> Bool {
+            var value: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(button, kAXEnabledAttribute as CFString, &value) == .success else { return false }
+            return (value as? NSNumber)?.boolValue ?? false
         }
 
         static func focusedWindow(_ app: AXUIElement) -> AXRead<AXUIElement?> {
@@ -212,6 +224,7 @@ extension Tracking {
                 frame: frame,
                 isMinimized: attributes.isMinimized ?? false,
                 isFullscreen: attributes.isFullscreen ?? false,
+                isStandardWindow: Eligibility.isStandardWindow(attributes),
                 spaceIDs: spaces,
                 displayID: Geometry.displayID(for: frame, displays: displays)
             )

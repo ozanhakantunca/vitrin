@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+- Optional "Quit apps when their last window closes" (Settings → General), as on Windows: when the
+  last standard window of a Dock app closes and none reopens within about a second, Vitrin quits the app
+  as ⌘Q would. Dialogs, open/save panels and windows that can't be minimized don't count. Minimizing, hiding, fullscreen and switching desktops don't count; Finder, menu-bar apps
+  and apps that never opened a window are left alone. A per-app "Keep running" exception opts an app
+  out. Off by default; existing config files load unchanged.
+
 ## [0.2.1] - 2026-11-24
 
 ### Security

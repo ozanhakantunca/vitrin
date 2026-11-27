@@ -28,7 +28,7 @@
 "Check for updates automatically" = "Güncellemeleri otomatik denetle";
 "Choose an app" = "Bir uygulama seçin";
 "Choose app…" = "Uygulama seç…";
-"Choose which apps appear in the switcher and which apps receive their own shortcuts." = "Değiştiricide görünecek ve kendi kısayollarını alacak uygulamaları seçin.";
+"Choose which apps appear in the switcher, which apps receive their own shortcuts, and which apps keep running when their last window closes." = "Hangi uygulamaların değiştiricide görüneceğini, hangilerinin kendi kısayollarını alacağını ve hangilerinin son penceresi kapanınca açık kalacağını seçin.";
 "Click the shortcut to record a new combination." = "Yeni bir birleşim kaydetmek için kısayola tıklayın.";
 "Click to record a shortcut" = "Kısayol kaydetmek için tıklayın";
 "Click, then press a key with at least one modifier. Escape cancels. Delete clears." = "Tıklayın ve en az bir değiştiriciyle bir tuşa basın. Escape iptal eder, Delete temizler.";
@@ -63,7 +63,10 @@
 "Include minimized windows" = "Küçültülmüş pencereleri dahil et";
 "Increase priority" = "Önceliği artır";
 "Inspired by AltTab. Vitrin is an independent project and is not affiliated with AltTab." = "AltTab'den esinlenmiştir. Vitrin bağımsız bir projedir ve AltTab ile bağlantılı değildir.";
+"Keep %@ running when its last window closes" = "Son penceresi kapanınca %@ uygulamasını açık tut";
 "Keep open" = "Açık tut";
+"Keep running" = "Açık tut";
+"Keep running when its last window closes" = "Son penceresi kapanınca açık tut";
 "Large" = "Büyük";
 "Launch at Login" = "Girişte başlat";
 "Launch at login" = "Girişte başlat";
@@ -73,6 +76,7 @@
 "License and credits" = "Lisans ve katkıda bulunanlar";
 "Licensed under the GNU General Public License v3.0 only (GPL-3.0-only)." = "Yalnızca GNU Genel Kamu Lisansı v3.0 (GPL-3.0-only) ile lisanslanmıştır.";
 "Light" = "Açık";
+"Like Windows: closing an app's last window quits the app, as ⌘Q would, so unsaved changes are still asked about. Minimizing, hiding and switching desktops don't count. Finder and apps set to “Keep running” in Exceptions stay open." = "Windows'taki gibi: bir uygulamanın son penceresini kapatmak, ⌘Q gibi uygulamadan çıkar; kaydedilmemiş değişiklikler yine sorulur. Küçültme, gizleme ve masaüstü değiştirme sayılmaz. Finder ve İstisnalar'da “Açık tut” seçilen uygulamalar açık kalır.";
 "Main screen" = "Ana ekran";
 "Medium" = "Orta";
 "Name" = "Ad";
@@ -89,6 +93,7 @@
 "Press a shortcut" = "Bir kısayola basın";
 "Preview the selected window" = "Seçili pencereyi önizle";
 "Quit Vitrin" = "Vitrin'den Çık";
+"Quit apps when their last window closes" = "Son penceresi kapanan uygulamadan çık";
 "Record trigger shortcut" = "Tetikleme kısayolunu kaydet";
 "Reload" = "Yeniden yükle";
 "Remove" = "Kaldır";
@@ -142,6 +147,7 @@
 "Vitrin on GitHub" = "GitHub'da Vitrin";
 "Welcome to Vitrin" = "Vitrin'e Hoş Geldiniz";
 "When no open windows" = "Açık pencere yokken";
+"Windows" = "Pencereler";
 "“%@” uses %@, which also reverses “%@”. The earlier profile has priority." = "“%@”, %@ kısayolunu kullanıyor; bu kısayol “%@” için ters geçişte de kullanılır. Önceki profil önceliklidir.";
 "⚠ Accessibility (required)" = "⚠ Erişilebilirlik (gerekli)";
 "⚠ Screen Recording (optional)" = "⚠ Ekran Kaydı (isteğe bağlı)";
