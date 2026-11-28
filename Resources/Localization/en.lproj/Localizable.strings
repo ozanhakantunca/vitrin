@@ -28,7 +28,7 @@
 "Check for updates automatically" = "Check for updates automatically";
 "Choose an app" = "Choose an app";
 "Choose app…" = "Choose app…";
-"Choose which apps appear in the switcher and which apps receive their own shortcuts." = "Choose which apps appear in the switcher and which apps receive their own shortcuts.";
+"Choose which apps appear in the switcher, which apps receive their own shortcuts, and which apps keep running when their last window closes." = "Choose which apps appear in the switcher, which apps receive their own shortcuts, and which apps keep running when their last window closes.";
 "Click the shortcut to record a new combination." = "Click the shortcut to record a new combination.";
 "Click to record a shortcut" = "Click to record a shortcut";
 "Click, then press a key with at least one modifier. Escape cancels. Delete clears." = "Click, then press a key with at least one modifier. Escape cancels. Delete clears.";
@@ -63,7 +63,10 @@
 "Include minimized windows" = "Include minimized windows";
 "Increase priority" = "Increase priority";
 "Inspired by AltTab. Vitrin is an independent project and is not affiliated with AltTab." = "Inspired by AltTab. Vitrin is an independent project and is not affiliated with AltTab.";
+"Keep %@ running when its last window closes" = "Keep %@ running when its last window closes";
 "Keep open" = "Keep open";
+"Keep running" = "Keep running";
+"Keep running when its last window closes" = "Keep running when its last window closes";
 "Large" = "Large";
 "Launch at Login" = "Launch at Login";
 "Launch at login" = "Launch at login";
@@ -73,6 +76,7 @@
 "License and credits" = "License and credits";
 "Licensed under the GNU General Public License v3.0 only (GPL-3.0-only)." = "Licensed under the GNU General Public License v3.0 only (GPL-3.0-only).";
 "Light" = "Light";
+"Like Windows: closing an app's last window quits the app, as ⌘Q would, so unsaved changes are still asked about. Minimizing, hiding and switching desktops don't count. Finder and apps set to “Keep running” in Exceptions stay open." = "Like Windows: closing an app's last window quits the app, as ⌘Q would, so unsaved changes are still asked about. Minimizing, hiding and switching desktops don't count. Finder and apps set to “Keep running” in Exceptions stay open.";
 "Main screen" = "Main screen";
 "Medium" = "Medium";
 "Name" = "Name";
@@ -89,6 +93,7 @@
 "Press a shortcut" = "Press a shortcut";
 "Preview the selected window" = "Preview the selected window";
 "Quit Vitrin" = "Quit Vitrin";
+"Quit apps when their last window closes" = "Quit apps when their last window closes";
 "Record trigger shortcut" = "Record trigger shortcut";
 "Reload" = "Reload";
 "Remove" = "Remove";
@@ -142,6 +147,7 @@
 "Vitrin on GitHub" = "Vitrin on GitHub";
 "Welcome to Vitrin" = "Welcome to Vitrin";
 "When no open windows" = "When no open windows";
+"Windows" = "Windows";
 "“%@” uses %@, which also reverses “%@”. The earlier profile has priority." = "“%@” uses %@, which also reverses “%@”. The earlier profile has priority.";
 "⚠ Accessibility (required)" = "⚠ Accessibility (required)";
 "⚠ Screen Recording (optional)" = "⚠ Screen Recording (optional)";

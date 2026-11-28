@@ -27,6 +27,8 @@ final class SwitcherController {
     var openProfile: ShortcutProfile?
     private var thumbnailTask: Task<Void, Never>?
     private var trackedWindowIDs: Set<CGWindowID> = []
+    /// Called after the tracker's windows changed (and the controller has caught up).
+    var onWindowsChange: (() -> Void)?
 
     var isOpen: Bool { openProfile != nil }
     /// True while the current session was opened by the trackpad gesture.
@@ -110,6 +112,7 @@ final class SwitcherController {
         tracker.onChange = { [weak self] in
             self?.forgetClosedWindows()
             self?.refreshDesktops()
+            self?.onWindowsChange?()
         }
         desktopPanel?.onDesktopClick = { [weak self] index in self?.pickDesktop(at: index) }
         panel.onHover = { [weak self] index in self?.select(index) }

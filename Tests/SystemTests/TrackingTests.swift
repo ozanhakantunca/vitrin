@@ -73,6 +73,17 @@ private func switchable(_ attributes: Attributes, layer: Int? = 0, windowID: CGW
         #expect(!switchable(standardWindow("AXUnknown", title: "Strip", size: CGSize(width: 720, height: 40))))
     }
 
+    @Test func standardWindowsForQuitOnLastWindowClose() {
+        let standard = kAXStandardWindowSubrole as String
+        #expect(Tracking.Eligibility.isStandardWindow(.init(role: kAXWindowRole as String, subrole: standard, canMinimize: true)))
+        // Open/save panels, About and settings windows: a disabled or missing minimize button.
+        #expect(!Tracking.Eligibility.isStandardWindow(.init(role: kAXWindowRole as String, subrole: standard, canMinimize: false)))
+        // Minimized / fullscreen windows aren't checked for the button.
+        #expect(Tracking.Eligibility.isStandardWindow(.init(role: kAXWindowRole as String, subrole: standard, isMinimized: true)))
+        #expect(!Tracking.Eligibility.isStandardWindow(.init(role: kAXWindowRole as String, subrole: kAXDialogSubrole as String)))
+        #expect(!Tracking.Eligibility.isStandardWindow(.init(role: kAXWindowRole as String, subrole: nil, isMain: true)))
+    }
+
     @Test func sizeFallsBackToWindowServerBounds() {
         var attributes = standardWindow()
         attributes.size = nil
@@ -203,7 +214,7 @@ private func switchable(_ attributes: Attributes, layer: Int? = 0, windowID: CGW
         #expect(text.contains("header"))
         #expect(text.contains("activePID=12 currentSpaces=[3]"))
         #expect(text.contains("0. wid=77 pid=12 app=\"Example\" bundle=com.example.app title=\"Say \\\"hi\\\"\""))
-        #expect(text.contains("frame=1,2 300x200 minimized=true appHidden=false fullscreen=true spaces=[3,5] display=1 seq=9"))
+        #expect(text.contains("frame=1,2 300x200 minimized=true appHidden=false fullscreen=true standard=true spaces=[3,5] display=1 seq=9"))
     }
 }
 

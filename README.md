@@ -28,6 +28,7 @@ desktop, with a live preview of each one. Everything is free; there is no paid t
   and style.
 - **Optional ⌘Tab takeover**, restored automatically when Vitrin quits.
 - **App exceptions** so VMs and remote desktops still receive Alt+Tab.
+- **Optional: quit apps when their last window closes**, as on Windows.
 - **Plain-text config** at `~/.config/vitrin/config.json`, reloaded live — dotfiles friendly.
 - **Command-line tool**: `vitrin list`, `vitrin focus`, `vitrin show`.
 - Optional three-finger trackpad swipe, update notifications, English and Turkish interface.
@@ -98,6 +99,17 @@ A Windows keyboard in macOS mode sends **Alt as ⌥** and the **Windows key as �
 If a key remapper such as Karabiner-Elements has its own rule for Win+Tab (⌘Tab), remove that rule —
 it catches the key before Vitrin does.
 
+On macOS, closing an app's last window leaves the app running in the Dock. Turn on **Settings → General
+→ Quit apps when their last window closes** to quit it instead, as Windows does. Vitrin quits the app
+the way ⌘Q does, so unsaved changes are still asked about. Minimizing, hiding (⌘H), fullscreen and
+switching desktops don't count, and windows on other desktops still keep an app open. Vitrin also
+waits about a second before quitting an app, so a window that reopens right away keeps the app
+running. Dialogs, open and save panels, and windows that can't be minimized (About, most Settings
+windows) don't count. It never quits an app that had no window open to begin with, Finder, or
+menu-bar-only apps.
+To keep a particular app running, give it a **Keep running** exception (see
+[App exceptions](#app-exceptions)).
+
 ## Configuration
 
 Everything is available in the Settings window (menu-bar icon → Settings). The same settings live in
@@ -116,6 +128,48 @@ for the current app's windows:
 ```
 
 A `profiles` list replaces the built-in shortcuts, so include every shortcut you want to keep.
+
+Keys you leave out keep their defaults, so a config file only needs the settings you change.
+
+### App exceptions
+
+An exception changes how Vitrin treats one app. Add one in **Settings → Exceptions** with **Add
+running app** or **Choose app…**, then set any of these options for it:
+
+| Option | `config.json` key | Effect |
+|---|---|---|
+| Hide from switcher | `"hide": "always"` | The app's windows never appear in the switcher (default `"never"`). |
+| Ignore shortcuts | `"ignoreShortcutsWhenFrontmost": true` | While the app is in front, Vitrin's shortcuts go to the app instead. Use it for VMs and remote desktops. |
+| Keep running | `"keepRunningWhenLastWindowCloses": true` | The app keeps running when its last window closes, even with the quit option on. |
+
+In `config.json`, each exception names the app by its bundle identifier. Only `bundleIdentifier` is
+required; options you leave out are off. To find an app's bundle identifier:
+
+```sh
+osascript -e 'id of app "Terminal"'    # com.apple.Terminal
+```
+
+Some common setups:
+
+```json
+{
+  "quitAppsWhenLastWindowCloses": true,
+  "appExceptions": [
+    { "bundleIdentifier": "com.utmapp.UTM", "ignoreShortcutsWhenFrontmost": true },
+    { "bundleIdentifier": "com.apple.Terminal", "keepRunningWhenLastWindowCloses": true },
+    { "bundleIdentifier": "com.apple.Music", "keepRunningWhenLastWindowCloses": true, "hide": "always" }
+  ]
+}
+```
+
+- **UTM:** a virtual machine that receives Alt+Tab itself.
+- **Terminal:** stays open after its last window closes. Use this for terminals, editors and agent apps
+  whose sessions or background work should survive.
+- **Music:** keeps playing without a window and stays out of the switcher.
+
+Vitrin ships built-in exceptions for common VM, remote-desktop and game-streaming apps. If you write an
+`appExceptions` list yourself, it replaces those built-in exceptions. Copy the ones you need from
+**Settings → Exceptions** before you edit the file, or add your apps in Settings instead.
 
 ## Command line
 

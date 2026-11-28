@@ -78,9 +78,13 @@ extension Tracking {
         var isMinimized: Bool?
         var isFullscreen: Bool?
         var isMain: Bool?
+        /// The window has an enabled minimize button. Only read for standard windows that are neither minimized
+        /// nor fullscreen: panels (open/save), About and settings windows usually can't be minimized.
+        var canMinimize: Bool?
 
         init(role: String? = nil, subrole: String? = nil, title: String? = nil, position: CGPoint? = nil,
-             size: CGSize? = nil, isMinimized: Bool? = nil, isFullscreen: Bool? = nil, isMain: Bool? = nil) {
+             size: CGSize? = nil, isMinimized: Bool? = nil, isFullscreen: Bool? = nil, isMain: Bool? = nil,
+             canMinimize: Bool? = nil) {
             self.role = role
             self.subrole = subrole
             self.title = title
@@ -89,6 +93,7 @@ extension Tracking {
             self.isMinimized = isMinimized
             self.isFullscreen = isFullscreen
             self.isMain = isMain
+            self.canMinimize = canMinimize
         }
 
         var frame: CGRect? {
@@ -128,6 +133,13 @@ extension Tracking {
             case .prohibited: return false
             @unknown default: return false
             }
+        }
+
+        /// A regular window of the app, for "quit when the last window closes": standard subrole and minimizable.
+        /// Panels, dialogs and windows such as About or Settings don't qualify. Minimized and fullscreen windows
+        /// aren't checked here (`LastWindowQuitPolicy` counts them anyway).
+        static func isStandardWindow(_ attributes: AXWindowAttributes) -> Bool {
+            attributes.subrole == (kAXStandardWindowSubrole as String) && attributes.canMinimize != false
         }
 
         /// Whether the window behind `attributes` (and its WindowServer row, if known) is a switch destination.
@@ -297,7 +309,7 @@ extension Tracking {
             return "\(index). wid=\(window.id) pid=\(window.pid) app=\(quoted(window.appName))"
                 + " bundle=\(window.bundleIdentifier ?? "-") title=\(quoted(window.title))"
                 + " frame=\(frame) minimized=\(window.isMinimized) appHidden=\(window.isAppHidden)"
-                + " fullscreen=\(window.isFullscreen) spaces=[\(spaces)]"
+                + " fullscreen=\(window.isFullscreen) standard=\(window.isStandardWindow) spaces=[\(spaces)]"
                 + " display=\(window.displayID.map(String.init) ?? "-")"
                 + " seq=\(window.lastFocusSequence.map(String.init) ?? "-")"
         }

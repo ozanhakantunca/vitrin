@@ -408,7 +408,9 @@ private func taskSettings() -> AppSettings {
     for _ in 0..<200 where panel.thumbnailUpdates.count < 10 { try await Task.sleep(nanoseconds: 20_000_000) }
     #expect(Set(panel.thumbnailUpdates) == Set((1...10).map { CGWindowID($0) }))
     #expect(thumbnails.maxRunning > 1 && thumbnails.maxRunning <= SwitcherController.maxConcurrentCaptures)
-    #expect(thumbnails.requested.first == CGWindowID(panel.items[panel.selection].id))
+    // Captures in one batch start in any order; the selection must be in the first batch.
+    let selected = CGWindowID(panel.items[panel.selection].id)
+    #expect(thumbnails.requested.prefix(SwitcherController.maxConcurrentCaptures).contains(selected))
     c.close()
 }
 

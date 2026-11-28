@@ -44,6 +44,11 @@ struct GeneralSettingsView: View {
                 }
                 Toggle(String(localized: "Check for updates automatically"), isOn: $store.settings.checkForUpdates)
             }
+            Section(String(localized: "Windows")) {
+                Toggle(String(localized: "Quit apps when their last window closes"), isOn: $store.settings.quitAppsWhenLastWindowCloses)
+                Text(String(localized: "Like Windows: closing an app's last window quits the app, as ⌘Q would, so unsaved changes are still asked about. Minimizing, hiding and switching desktops don't count. Finder and apps set to “Keep running” in Exceptions stay open."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section(String(localized: "Appearance")) {
                 SettingsPicker(title: String(localized: "Theme"), selection: $store.settings.appearance.theme)
                 SettingsPicker(title: String(localized: "Show switcher on"), selection: $store.settings.appearance.showOnScreen)

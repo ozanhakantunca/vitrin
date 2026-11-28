@@ -29,6 +29,19 @@ Grant Accessibility and Screen Recording before testing. Each step below include
 ## Exceptions
 - Add an app exception and open the switcher; its windows follow the configured exception. Remove it; normal behavior returns.
 
+## Quit apps when their last window closes
+Turn on Settings → General → Quit apps when their last window closes. Use TextEdit (or another Dock app) unless noted.
+- Open two windows and close both with the red button or ⌘W; about a second after the last one closes, the app quits. Closing only the first one keeps it running.
+- Type in a document and close it, choosing Cancel in the save prompt; the window stays and the app keeps running. Close it again and choose Don't Save; the app quits.
+- With one window: minimize it, hide the app (⌘H), make the window fullscreen, and switch desktops; the app keeps running each time. Move the window to another desktop, then close a second window on the current desktop; the app keeps running.
+- Launch an app that starts without a window, or with only an open panel (TextEdit with iCloud Drive: press Cancel); the app keeps running. Close a window that can't be minimized, such as About or most Settings windows, while no document window is open; the app keeps running.
+- `swift scripts/vitrin-debug.swift dump` lists `standard=true` for the windows that count (minimized windows may show `standard=false` but still count).
+- Close a Finder window, and the window of a menu-bar app; both keep running.
+- In Safari, close the second-to-last tab of a window, and switch tabs; Safari keeps running. Close the last window; Safari quits.
+- Add an app to Exceptions with Keep running ticked and close its last window; it keeps running. Untick it, open a window and close it; the app quits.
+- Quit an app with ⌘Q, or with Q in the switcher; it quits once, with no extra prompt.
+- Turn the setting off; closing the last window leaves the app running again.
+
 ## ⌘Tab takeover/restore
 - Enable ⌘Tab takeover; ⌘Tab opens Vitrin. Disable it or quit Vitrin; the system switcher works again.
 

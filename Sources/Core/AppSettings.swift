@@ -16,6 +16,8 @@ public struct AppSettings: Sendable, Hashable, Codable {
     public var trackpadGesture: Bool
     /// Periodically check GitHub Releases for a newer Vitrin.
     public var checkForUpdates: Bool
+    /// Quit an app when the user closes its last window, as on Windows (`LastWindowQuitPolicy`).
+    public var quitAppsWhenLastWindowCloses: Bool
 
     public init(
         schemaVersion: Int = AppSettings.currentSchemaVersion,
@@ -26,7 +28,8 @@ public struct AppSettings: Sendable, Hashable, Codable {
         showMenuBarIcon: Bool = true,
         trackpadGesture: Bool = false,
         checkForUpdates: Bool = true,
-        showDesktopsInTaskView: Bool = true
+        showDesktopsInTaskView: Bool = true,
+        quitAppsWhenLastWindowCloses: Bool = false
     ) {
         self.schemaVersion = schemaVersion
         self.profiles = profiles
@@ -37,6 +40,7 @@ public struct AppSettings: Sendable, Hashable, Codable {
         self.showDesktopsInTaskView = showDesktopsInTaskView
         self.trackpadGesture = trackpadGesture
         self.checkForUpdates = checkForUpdates
+        self.quitAppsWhenLastWindowCloses = quitAppsWhenLastWindowCloses
     }
 
     /// Built-in defaults. Unlike `AppSettings()`, these include `AppException.builtInDefaults`.
@@ -44,7 +48,7 @@ public struct AppSettings: Sendable, Hashable, Codable {
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion, profiles, appExceptions, appearance, launchAtLogin, showMenuBarIcon
-        case trackpadGesture, checkForUpdates, showDesktopsInTaskView
+        case trackpadGesture, checkForUpdates, showDesktopsInTaskView, quitAppsWhenLastWindowCloses
     }
 
     public init(from decoder: Decoder) throws {
@@ -60,7 +64,8 @@ public struct AppSettings: Sendable, Hashable, Codable {
             showMenuBarIcon: c.decode(.showMenuBarIcon, or: d.showMenuBarIcon, decoder),
             trackpadGesture: c.decode(.trackpadGesture, or: d.trackpadGesture, decoder),
             checkForUpdates: c.decode(.checkForUpdates, or: d.checkForUpdates, decoder),
-            showDesktopsInTaskView: c.decode(.showDesktopsInTaskView, or: d.showDesktopsInTaskView, decoder)
+            showDesktopsInTaskView: c.decode(.showDesktopsInTaskView, or: d.showDesktopsInTaskView, decoder),
+            quitAppsWhenLastWindowCloses: c.decode(.quitAppsWhenLastWindowCloses, or: d.quitAppsWhenLastWindowCloses, decoder)
         )
     }
 
@@ -81,6 +86,8 @@ public struct AppException: Sendable, Hashable, Codable {
     public var hide: HideRule
     /// While this app is frontmost, Vitrin's shortcuts are passed through to it.
     public var ignoreShortcutsWhenFrontmost: Bool
+    /// Never quit this app when its last window closes (`AppSettings.quitAppsWhenLastWindowCloses`).
+    public var keepRunningWhenLastWindowCloses: Bool
 
     public enum HideRule: String, Sendable, Hashable, Codable, CaseIterable {
         case never
@@ -93,14 +100,16 @@ public struct AppException: Sendable, Hashable, Codable {
         case whenNoOpenWindows
     }
 
-    public init(bundleIdentifier: String, hide: HideRule = .never, ignoreShortcutsWhenFrontmost: Bool = false) {
+    public init(bundleIdentifier: String, hide: HideRule = .never, ignoreShortcutsWhenFrontmost: Bool = false,
+                keepRunningWhenLastWindowCloses: Bool = false) {
         self.bundleIdentifier = bundleIdentifier
         self.hide = hide
         self.ignoreShortcutsWhenFrontmost = ignoreShortcutsWhenFrontmost
+        self.keepRunningWhenLastWindowCloses = keepRunningWhenLastWindowCloses
     }
 
     enum CodingKeys: String, CodingKey {
-        case bundleIdentifier, hide, ignoreShortcutsWhenFrontmost
+        case bundleIdentifier, hide, ignoreShortcutsWhenFrontmost, keepRunningWhenLastWindowCloses
     }
 
     /// VMs, remote-desktop and game-streaming clients: they need ⌥⇥ / ⌘⇥ for the remote/guest system.
@@ -128,7 +137,8 @@ public struct AppException: Sendable, Hashable, Codable {
         self.init(
             bundleIdentifier: bundleID,
             hide: c.decode(.hide, or: .never, decoder),
-            ignoreShortcutsWhenFrontmost: c.decode(.ignoreShortcutsWhenFrontmost, or: false, decoder)
+            ignoreShortcutsWhenFrontmost: c.decode(.ignoreShortcutsWhenFrontmost, or: false, decoder),
+            keepRunningWhenLastWindowCloses: c.decode(.keepRunningWhenLastWindowCloses, or: false, decoder)
         )
     }
 }

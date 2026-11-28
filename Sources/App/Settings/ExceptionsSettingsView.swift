@@ -22,7 +22,7 @@ struct ExceptionsSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(String(localized: "Choose which apps appear in the switcher and which apps receive their own shortcuts."))
+            Text(String(localized: "Choose which apps appear in the switcher, which apps receive their own shortcuts, and which apps keep running when their last window closes."))
                 .font(.callout).foregroundStyle(.secondary)
             Table(rows, selection: $selectedID) {
                 TableColumn(String(localized: "Application")) { app in
@@ -50,6 +50,13 @@ struct ExceptionsSettingsView: View {
                         .help(String(localized: "Ignore shortcuts when frontmost"))
                 }
                 .width(min: 120, ideal: 150)
+                TableColumn(String(localized: "Keep running")) { app in
+                    Toggle(String(localized: "Keep \(app.name) running when its last window closes"), isOn: binding(app.id, \.keepRunningWhenLastWindowCloses, fallback: false))
+                        .labelsHidden()
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .help(String(localized: "Keep running when its last window closes"))
+                }
+                .width(min: 100, ideal: 120)
             }
             .accessibilityLabel(String(localized: "App exceptions"))
             if rows.isEmpty {
